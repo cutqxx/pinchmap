@@ -159,6 +159,29 @@ describe("parseMapFile identifiers", () => {
     expect(getNode(map, "dup").text).toBe("first");
   });
 
+  it("never gives an item without an id the id of an orphaned json entry nor its state", () => {
+    const orphanId = [...parseMapFile("- x\n", sequenceRandom()).map.nodes.keys()][0] ?? "";
+    const file = `- fresh\n\n${jsonBlock(JSON.stringify({ nodes: { [orphanId]: { collapsed: true } } }))}\n`;
+
+    const { map } = parseMapFile(file, sequenceRandom());
+
+    const [freshId = ""] = map.rootIds;
+    expect(freshId).not.toBe(orphanId);
+    expect(map.nodes.size).toBe(1);
+    expect(getNode(map, freshId).state).toBeUndefined();
+  });
+
+  it("never gives an item without an id the id of an orphaned entry in a head block", () => {
+    const orphanId = [...parseMapFile("- x\n", sequenceRandom()).map.nodes.keys()][0] ?? "";
+    const headBlock = jsonBlock(JSON.stringify({ nodes: { [orphanId]: { left: true } } }));
+
+    const { map } = parseMapFile(`${headBlock}\n- fresh\n`, sequenceRandom());
+
+    const [freshId = ""] = map.rootIds;
+    expect(freshId).not.toBe(orphanId);
+    expect(getNode(map, freshId).state).toBeUndefined();
+  });
+
   it("gives the second and later items with a duplicated id new unique ids", () => {
     const { map } = parseMapFile("- first ^dup\n- second ^dup\n- third ^dup\n", sequenceRandom());
 
@@ -431,5 +454,232 @@ describe("parseMapFile mixed indentation", () => {
 
   it("uses a tab as the indent unit when the file has no nested items", () => {
     expect(parseMapFile("- a\n- b\n").source.indentUnit).toBe("\t");
+  });
+});
+
+function jsonBlock(...lines: string[]): string {
+  return ["%%", "```json", ...lines, "```", "%%"].join("\n");
+}
+
+describe("parseMapFile generated ids", () => {
+  it("gives items without an id six characters from a-z and 0-9", () => {
+    const { map } = parseMapFile("- a\n- b\n", sequenceRandom());
+
+    expect([...map.nodes.keys()].every((id) => /^[a-z0-9]{6}$/.test(id))).toBe(true);
+  });
+
+  it("gives every item without an id a different id", () => {
+    const { map } = parseMapFile("- a\n- b\n- c\n- d\n", sequenceRandom());
+
+    expect(new Set(map.nodes.keys()).size).toBe(4);
+  });
+
+  it("keeps ids of other lengths and shapes as they are", () => {
+    const { map } = parseMapFile("- a ^ab12\n- b ^Long_Id-1234567\n", sequenceRandom());
+
+    expect([...map.nodes.keys()]).toEqual(["ab12", "Long_Id-1234567"]);
+  });
+
+  it("never generates an id that an item of the file already has", () => {
+    const firstGenerated = [...parseMapFile("- x\n", sequenceRandom()).map.nodes.keys()][0] ?? "";
+
+    const { map } = parseMapFile(`- taken ^${firstGenerated}\n- fresh\n`, sequenceRandom());
+
+    const fresh = [...map.nodes.values()].find((node) => node.text === "fresh");
+    expect(fresh?.id).not.toBe(firstGenerated);
+    expect(map.nodes.size).toBe(2);
+  });
+
+  it("never generates an id that a later item of the file has", () => {
+    const firstGenerated = [...parseMapFile("- x\n", sequenceRandom()).map.nodes.keys()][0] ?? "";
+
+    const { map } = parseMapFile(`- fresh\n- taken ^${firstGenerated}\n`, sequenceRandom());
+
+    expect(map.nodes.size).toBe(2);
+    expect(map.nodes.get(firstGenerated)?.text).toBe("taken");
+  });
+
+  it("gives a repeated id to the first item and a new id to the later ones", () => {
+    const { map } = parseMapFile("- one ^dup\n- two ^dup\n- three ^dup\n", sequenceRandom());
+
+    expect(map.nodes.get("dup")?.text).toBe("one");
+    expect(map.nodes.size).toBe(3);
+    expect([...map.nodes.values()].map((node) => node.text)).toEqual(["one", "two", "three"]);
+  });
+});
+
+describe("parseMapFile json block", () => {
+  it("attaches the state of an id to its node", () => {
+    const file = `- a ^a1\n- b ^b1\n\n${jsonBlock('{"version": 1, "nodes": {"b1": {"collapsed": true}}}')}\n`;
+
+    const { map, isLayoutUnreadable } = parseMapFile(file);
+
+    expect(map.nodes.get("b1")?.state).toEqual({ collapsed: true });
+    expect(map.nodes.get("a1")?.state).toBeUndefined();
+    expect(isLayoutUnreadable).toBe(false);
+  });
+
+  it("ignores state entries for ids that are not in the list", () => {
+    const file = `- a ^a1\n\n${jsonBlock('{"nodes": {"gone": {"left": true}}}')}\n`;
+
+    const { map } = parseMapFile(file);
+
+    expect([...map.nodes.keys()]).toEqual(["a1"]);
+    expect(map.nodes.get("a1")?.state).toBeUndefined();
+  });
+
+  it("uses the last block when there are several", () => {
+    const file = `- a ^a1\n\n${jsonBlock('{"nodes": {"a1": {"color": "old"}}}')}\nmid\n${jsonBlock('{"nodes": {"a1": {"color": "new"}}}')}\n`;
+
+    expect(parseMapFile(file).map.nodes.get("a1")?.state).toEqual({ color: "new" });
+  });
+
+  it("treats an earlier block as outside text, not as state", () => {
+    const earlier = jsonBlock('{"nodes": {"a1": {"color": "old"}}}');
+    const file = `- a ^a1\n\n${earlier}\nmid\n${jsonBlock('{"nodes": {}}')}\n`;
+
+    const { map, source } = parseMapFile(file);
+
+    expect(map.nodes.get("a1")?.state).toBeUndefined();
+    expect(source.tail).toContain(earlier);
+  });
+
+  it("uses a readable block placed before the list when the tail has none and keeps it in the head", () => {
+    const headBlock = `${jsonBlock('{"nodes": {"a1": {"left": true}}}')}\n`;
+
+    const { map, source, isLayoutUnreadable } = parseMapFile(`---\nmindmap: true\n---\n${headBlock}- a ^a1\n`);
+
+    expect(map.nodes.get("a1")?.state).toEqual({ left: true });
+    expect(source.head).toContain(headBlock);
+    expect(source.json.location).toBe("head");
+    expect(isLayoutUnreadable).toBe(false);
+  });
+
+  it("uses the last of several blocks in the head", () => {
+    const head = `${jsonBlock('{"nodes": {"a1": {"color": "old"}}}')}\n${jsonBlock('{"nodes": {"a1": {"color": "new"}}}')}\n`;
+
+    const { map } = parseMapFile(`${head}- a ^a1\n`);
+
+    expect(map.nodes.get("a1")?.state).toEqual({ color: "new" });
+  });
+
+  it("lets the tail block win over a head block when both exist", () => {
+    const headBlock = `${jsonBlock('{"nodes": {"a1": {"color": "head"}}}')}\n`;
+    const tailBlock = jsonBlock('{"nodes": {"a1": {"color": "tail"}}}');
+
+    const { map, source } = parseMapFile(`${headBlock}- a ^a1\n\n${tailBlock}\n`);
+
+    expect(map.nodes.get("a1")?.state).toEqual({ color: "tail" });
+    expect(source.json.location).toBe("tail");
+  });
+
+  it("flags the layout as unreadable when the head block is corrupt and the tail has none", () => {
+    const headBlock = `${jsonBlock("{broken")}\n`;
+
+    const { map, source, isLayoutUnreadable } = parseMapFile(`${headBlock}- a ^a1\n`);
+
+    expect(map.nodes.get("a1")?.state).toBeUndefined();
+    expect(source.head).toBe(headBlock);
+    expect(isLayoutUnreadable).toBe(true);
+  });
+
+  it("flags a corrupt tail block even when the head block is readable", () => {
+    const headBlock = `${jsonBlock('{"nodes": {"a1": {"left": true}}}')}\n`;
+
+    const { map, isLayoutUnreadable } = parseMapFile(`${headBlock}- a ^a1\n\n${jsonBlock("{broken")}\n`);
+
+    expect(isLayoutUnreadable).toBe(true);
+    expect(map.nodes.get("a1")?.state).toBeUndefined();
+  });
+
+  it("reads a block in a CRLF file", () => {
+    const block = jsonBlock('{"nodes": {"a1": {"left": true}}}').replace(/\n/g, "\r\n");
+
+    const { map } = parseMapFile(`- a ^a1\r\n\r\n${block}\r\n`);
+
+    expect(map.nodes.get("a1")?.state).toEqual({ left: true });
+  });
+
+  it("reads a block without a final line break", () => {
+    const { map } = parseMapFile(`- a ^a1\n\n${jsonBlock('{"nodes": {"a1": {"left": true}}}')}`);
+
+    expect(map.nodes.get("a1")?.state).toEqual({ left: true });
+  });
+
+  it("keeps unknown state fields of future versions", () => {
+    const state = { left: true, future: { nested: [1, "x", null] } };
+    const file = `- a ^a1\n\n${jsonBlock(JSON.stringify({ version: 9, nodes: { a1: state } }))}\n`;
+
+    expect(parseMapFile(file).map.nodes.get("a1")?.state).toEqual(state);
+  });
+
+  it("gives the state of a repeated id to the node of the first item", () => {
+    const file = `- one ^dup\n- two ^dup\n\n${jsonBlock('{"nodes": {"dup": {"collapsed": true}}}')}\n`;
+
+    const { map } = parseMapFile(file, sequenceRandom());
+
+    const states = [...map.nodes.values()].map((node) => [node.text, node.state]);
+    expect(states).toEqual([
+      ["one", { collapsed: true }],
+      ["two", undefined],
+    ]);
+  });
+
+  it("does not attach state to a node whose entry is an empty object", () => {
+    const file = `- a ^a1\n\n${jsonBlock('{"nodes": {"a1": {}}}')}\n`;
+
+    expect(parseMapFile(file).map.nodes.get("a1")?.state).toBeUndefined();
+  });
+});
+
+describe("parseMapFile with a corrupt json block", () => {
+  it.each([
+    ["invalid JSON", '{"nodes": {'],
+    ["an array", "[]"],
+    ["nodes that is not an object", '{"nodes": 5}'],
+  ])("opens the map without state and flags the layout as unreadable for %s", (_name, body) => {
+    const { map, isLayoutUnreadable } = parseMapFile(`- a ^a1\n- b ^b1\n\n${jsonBlock(body)}\n`);
+
+    expect(isLayoutUnreadable).toBe(true);
+    expect([...map.nodes.values()].map((node) => node.text)).toEqual(["a", "b"]);
+    expect([...map.nodes.values()].every((node) => node.state === undefined)).toBe(true);
+  });
+
+  it("keeps the corrupt block in the text outside the map", () => {
+    const corrupt = jsonBlock("{broken");
+
+    const { source } = parseMapFile(`- a ^a1\n${corrupt}\n`);
+
+    expect(source.tail).toContain(corrupt);
+  });
+
+  it("does not flag a file without any block", () => {
+    expect(parseMapFile("- a ^a1\n").isLayoutUnreadable).toBe(false);
+  });
+
+  it("flags the layout as unreadable when the last block is corrupt even if an earlier one is valid", () => {
+    const file = `- a ^a1\n${jsonBlock('{"nodes": {"a1": {"left": true}}}')}\n${jsonBlock("{broken")}\n`;
+
+    const { map, isLayoutUnreadable } = parseMapFile(file);
+
+    expect(isLayoutUnreadable).toBe(true);
+    expect(map.nodes.get("a1")?.state).toBeUndefined();
+  });
+
+  it("does not flag the layout when a valid block follows a corrupt one", () => {
+    const file = `- a ^a1\n${jsonBlock("{broken")}\n${jsonBlock('{"nodes": {"a1": {"left": true}}}')}\n`;
+
+    const { map, isLayoutUnreadable } = parseMapFile(file);
+
+    expect(isLayoutUnreadable).toBe(false);
+    expect(map.nodes.get("a1")?.state).toEqual({ left: true });
+  });
+});
+
+describe("parseMapFile loaded map identity", () => {
+  it("remembers the parsed map so that an unedited map can be recognised", () => {
+    const { map, source } = parseMapFile("- a\n");
+
+    expect(source.loadedMap).toBe(map);
   });
 });

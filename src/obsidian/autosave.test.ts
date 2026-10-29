@@ -194,4 +194,76 @@ describe("createDebouncedSave", () => {
     await expect(autosave.flush()).rejects.toThrow("disk full");
     expect(onError).not.toHaveBeenCalled();
   });
+
+  it("has nothing pending before the first schedule", () => {
+    expect(createDebouncedSave(() => Promise.resolve(), DELAY_MS).hasPending()).toBe(false);
+  });
+
+  it("has a pending save after schedule", () => {
+    const autosave = createDebouncedSave(() => Promise.resolve(), DELAY_MS);
+
+    autosave.schedule();
+
+    expect(autosave.hasPending()).toBe(true);
+  });
+
+  it("has nothing pending once the timer has fired", () => {
+    const autosave = createDebouncedSave(() => Promise.resolve(), DELAY_MS);
+    autosave.schedule();
+
+    vi.advanceTimersByTime(DELAY_MS);
+
+    expect(autosave.hasPending()).toBe(false);
+  });
+
+  it("has nothing pending after flush", async () => {
+    const autosave = createDebouncedSave(() => Promise.resolve(), DELAY_MS);
+    autosave.schedule();
+
+    await autosave.flush();
+
+    expect(autosave.hasPending()).toBe(false);
+  });
+
+  it("cancel drops the scheduled save", () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const autosave = createDebouncedSave(save, DELAY_MS);
+    autosave.schedule();
+
+    autosave.cancel();
+    vi.advanceTimersByTime(DELAY_MS * 3);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(autosave.hasPending()).toBe(false);
+  });
+
+  it("flush after cancel does not save", async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const autosave = createDebouncedSave(save, DELAY_MS);
+    autosave.schedule();
+    autosave.cancel();
+
+    await autosave.flush();
+
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("cancel without a scheduled save does nothing", () => {
+    const autosave = createDebouncedSave(() => Promise.resolve(), DELAY_MS);
+
+    expect(() => autosave.cancel()).not.toThrow();
+    expect(autosave.hasPending()).toBe(false);
+  });
+
+  it("can be scheduled again after cancel", () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const autosave = createDebouncedSave(save, DELAY_MS);
+    autosave.schedule();
+    autosave.cancel();
+
+    autosave.schedule();
+    vi.advanceTimersByTime(DELAY_MS);
+
+    expect(save).toHaveBeenCalledTimes(1);
+  });
 });

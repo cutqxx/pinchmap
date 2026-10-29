@@ -127,12 +127,12 @@ describe("round trip of edited multi-line node text", () => {
   });
 
   it("writes a bullet-like continuation line escaped so it stays part of the node", () => {
-    const { map, source } = parseMapFile("- head\n");
+    const { map, source } = parseMapFile("- head ^h1\n");
     const id = [...map.nodes.keys()][0] ?? "";
 
     const written = serializeMapFile(withNodeText(map, id, "one\n- two"), source);
 
-    expect(written).toBe("- one\n  \\- two\n");
+    expect(written).toBe("- one ^h1\n  \\- two\n");
     expect(parseMapFile(written).map.nodes.size).toBe(1);
   });
 
@@ -155,12 +155,12 @@ describe("round trip of edited multi-line node text", () => {
   });
 
   it("uses the indentation derived from the item prefix when edited text has mixed indentation", () => {
-    const { map, source } = parseMapFile("- head\n        cont\n");
+    const { map, source } = parseMapFile("- head ^h1\n        cont\n");
     const id = [...map.nodes.keys()][0] ?? "";
 
     const written = serializeMapFile(withNodeText(map, id, "a\n\tx\n  y"), source);
 
-    expect(written).toBe("- a\n  \tx\n    y\n");
+    expect(written).toBe("- a ^h1\n  \tx\n    y\n");
   });
 });
 

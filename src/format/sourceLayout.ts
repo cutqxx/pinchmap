@@ -1,4 +1,5 @@
-import type { NodeId } from "../model";
+import type { MindMap, NodeId } from "../model";
+import type { JsonSource } from "./jsonBlock";
 import { composeItemContent } from "./trailingId";
 
 export interface SourceItem {
@@ -18,6 +19,8 @@ export interface SourceLayout {
   readonly tail: string;
   readonly indentUnit: string;
   readonly items: ReadonlyMap<NodeId, SourceItem>;
+  readonly json: JsonSource;
+  readonly loadedMap: MindMap;
 }
 
 export const DEFAULT_INDENT_UNIT = "\t";
@@ -61,7 +64,7 @@ export function renderNewItemLines(indent: string, text: string, id: NodeId): st
     trailingBlankLines: [],
     text,
     depth: 0,
-    hasWrittenId: false,
+    hasWrittenId: true,
   };
   return rewriteItemLines(item, id, text);
 }

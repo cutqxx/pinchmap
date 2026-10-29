@@ -1,6 +1,8 @@
 export interface DebouncedSave {
   schedule(): void;
   flush(): Promise<void>;
+  cancel(): void;
+  hasPending(): boolean;
 }
 
 export function createDebouncedSave(
@@ -19,6 +21,13 @@ export function createDebouncedSave(
     schedule() {
       if (timer !== null) clearTimeout(timer);
       timer = setTimeout(() => runPendingSave().catch(onError), delayMs);
+    },
+    cancel() {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+    },
+    hasPending() {
+      return timer !== null;
     },
     async flush() {
       if (timer === null) return;

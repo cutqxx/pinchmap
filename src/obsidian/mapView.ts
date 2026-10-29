@@ -1,9 +1,10 @@
-import { TextFileView } from "obsidian";
-import type { TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, TextFileView } from "obsidian";
+import type { TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import { MapEditor } from "../editor";
 import { parseMapFile, serializeMapFile } from "../format";
 import type { ParsedMapFile } from "../format";
 import { createDebouncedSave } from "./autosave";
+import { ExternalChangeGate } from "./externalChangeGate";
 import { t } from "./i18n";
 
 export const MAP_VIEW_TYPE = "pinchmap-view";
@@ -14,20 +15,34 @@ const VIEW_ICON = "network";
 export class MapView extends TextFileView {
   private readonly editor: MapEditor;
   private readonly autosave = createDebouncedSave(
-    () => this.save(),
+    () => this.saveUnlessReloadDeferred(),
     AUTOSAVE_DELAY_MS,
     (error) => console.error("Pinchmap: autosave failed", error),
   );
   private parsedFile: ParsedMapFile = parseMapFile("");
-  private lastKnownText: string | null = null;
+  private readonly externalChanges = new ExternalChangeGate({
+    isEditingText: () => this.editor.isEditingText(),
+    reload: (text) => this.reloadFromExternalChange(text),
+    onReloadDeferred: () => this.holdUnsavedEditsForDeferredReload(),
+  });
+  private hasUnsavedEditsHeldBack = false;
+
+  private readonly notify = (message: string): void => {
+    new Notice(message);
+  };
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
     this.contentEl.classList.add("pinchmap-view");
     this.editor = new MapEditor({
       container: this.contentEl,
-      host: { onMapChanged: () => this.autosave.schedule() },
+      host: {
+        onMapChanged: () => this.autosave.schedule(),
+        onTextEditEnded: () => this.externalChanges.resumeAfterTextEdit(),
+        notify: this.notify,
+      },
     });
+    this.registerEvent(this.app.vault.on("modify", (file) => void this.handleVaultModify(file)));
   }
 
   getViewType(): string {
@@ -44,15 +59,17 @@ export class MapView extends TextFileView {
 
   getViewData(): string {
     const text = serializeMapFile(this.editor.getMap(), this.parsedFile.source);
-    this.lastKnownText = text;
+    this.externalChanges.noteKnownText(text);
     return text;
   }
 
   setViewData(data: string, clear: boolean): void {
-    if (!clear && data === this.lastKnownText) return;
-    this.parsedFile = parseMapFile(data);
-    this.lastKnownText = data;
-    this.editor.loadMap(this.parsedFile.map);
+    if (clear) {
+      this.externalChanges.startFrom(data);
+      this.loadText(data);
+    } else {
+      this.externalChanges.receive(data);
+    }
   }
 
   clear(): void {
@@ -63,6 +80,39 @@ export class MapView extends TextFileView {
     this.editor.commitPendingEdit();
     await this.autosave.flush();
     await super.onUnloadFile(file);
+  }
+
+  private async handleVaultModify(file: TAbstractFile): Promise<void> {
+    if (this.file === null || file.path !== this.file.path) return;
+    const text = await this.app.vault.read(this.file);
+    this.externalChanges.receive(text);
+  }
+
+  private async saveUnlessReloadDeferred(): Promise<void> {
+    if (this.externalChanges.hasDeferredReload()) {
+      this.hasUnsavedEditsHeldBack = true;
+      return;
+    }
+    await this.save();
+  }
+
+  private holdUnsavedEditsForDeferredReload(): void {
+    if (this.autosave.hasPending()) this.hasUnsavedEditsHeldBack = true;
+    this.autosave.cancel();
+  }
+
+  private reloadFromExternalChange(text: string): void {
+    const hadUnsavedChanges = this.autosave.hasPending() || this.hasUnsavedEditsHeldBack;
+    this.autosave.cancel();
+    this.loadText(text);
+    if (hadUnsavedChanges) this.notify(t("mapUpdatedExternally"));
+  }
+
+  private loadText(data: string): void {
+    this.hasUnsavedEditsHeldBack = false;
+    this.parsedFile = parseMapFile(data);
+    this.editor.loadMap(this.parsedFile.map);
+    if (this.parsedFile.isLayoutUnreadable) this.notify(t("layoutUnreadable"));
   }
 
   async onClose(): Promise<void> {

@@ -1,10 +1,12 @@
 import type { NodeId } from "./nodeId";
+import type { NodeState } from "./nodeState";
 
 export interface MapNode {
   readonly id: NodeId;
   readonly text: string;
   readonly parentId: NodeId | null;
   readonly childIds: readonly NodeId[];
+  readonly state?: NodeState;
 }
 
 export interface MindMap {
@@ -16,6 +18,7 @@ export interface NodeEntry {
   readonly id: NodeId;
   readonly text: string;
   readonly parentId: NodeId | null;
+  readonly state?: NodeState;
 }
 
 export interface PlacedNode {
@@ -28,8 +31,9 @@ export const EMPTY_MIND_MAP: MindMap = { rootIds: [], nodes: new Map() };
 export function buildMindMap(entries: readonly NodeEntry[]): MindMap {
   const childIdsByParent = groupChildIdsByParent(entries);
   const nodes = new Map<NodeId, MapNode>();
-  for (const { id, text, parentId } of entries) {
-    nodes.set(id, { id, text, parentId, childIds: childIdsByParent.get(id) ?? [] });
+  for (const { id, text, parentId, state } of entries) {
+    const node = { id, text, parentId, childIds: childIdsByParent.get(id) ?? [] };
+    nodes.set(id, state === undefined ? node : { ...node, state });
   }
   const rootIds = entries.filter((entry) => entry.parentId === null).map((entry) => entry.id);
   return { rootIds, nodes };

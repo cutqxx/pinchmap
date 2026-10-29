@@ -11,6 +11,8 @@ import type { TextEditSession } from "./textEditSession";
 
 export interface MapHost {
   onMapChanged(): void;
+  onTextEditEnded(): void;
+  notify(message: string): void;
 }
 
 export interface MapEditorOptions {
@@ -58,6 +60,10 @@ export class MapEditor {
     this.editing = null;
     this.map = map;
     this.scheduleFrame();
+  }
+
+  isEditingText(): boolean {
+    return this.editing !== null;
   }
 
   commitPendingEdit(): void {
@@ -112,6 +118,7 @@ export class MapEditor {
       this.host.onMapChanged();
     }
     this.scheduleFrame();
+    this.host.onTextEditEnded();
   }
 
   private scheduleFrame(): void {

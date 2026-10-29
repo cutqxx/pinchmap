@@ -1,5 +1,7 @@
 import { buildMindMap, generateNodeId } from "../model";
-import type { MindMap, NodeEntry, NodeId } from "../model";
+import type { MindMap, NodeEntry, NodeId, NodeState } from "../model";
+import { detectLineEnding, readJson } from "./jsonBlock";
+import type { ReadJson } from "./jsonBlock";
 import { splitLines, stripLineEnding } from "./lines";
 import { LIST_LINE, findListRegion, groupIntoItemBlocks, isBlankLine } from "./listRegion";
 import type { ItemBlock } from "./listRegion";
@@ -10,6 +12,7 @@ import { TRAILING_ID } from "./trailingId";
 export interface ParsedMapFile {
   readonly map: MindMap;
   readonly source: SourceLayout;
+  readonly isLayoutUnreadable: boolean;
 }
 
 interface ParsedListLine {
@@ -40,7 +43,10 @@ export function parseMapFile(text: string, random: () => number = Math.random): 
   const lines = splitLines(text);
   const { start: listStart, end: listEnd } = findListRegion(lines);
   const listLines = groupIntoItemBlocks(lines.slice(listStart, listEnd)).map(parseListLine);
-  const ids = assignIds(listLines, random);
+  const head = lines.slice(0, listStart).join("");
+  const tail = lines.slice(listEnd).join("");
+  const { source: json, states, isLayoutUnreadable } = readServiceJson(head, tail, detectLineEnding(text));
+  const ids = assignIds(listLines, new Set(states.keys()), random);
   const placements = resolvePlacements(listLines);
 
   const entries = listLines.map(
@@ -48,6 +54,7 @@ export function parseMapFile(text: string, random: () => number = Math.random): 
       id: at(ids, index).id,
       text: line.text,
       parentId: parentIdOf(at(placements, index), ids),
+      ...stateEntry(states.get(at(ids, index).id)),
     }),
   );
   const items = new Map<NodeId, SourceItem>();
@@ -56,15 +63,31 @@ export function parseMapFile(text: string, random: () => number = Math.random): 
     items.set(id, toSourceItem(line, at(placements, index).depth, isWritten));
   });
 
+  const map = buildMindMap(entries);
   return {
-    map: buildMindMap(entries),
+    map,
     source: {
-      head: lines.slice(0, listStart).join(""),
-      tail: lines.slice(listEnd).join(""),
+      head,
+      tail,
       indentUnit: deriveIndentUnitFromItems(listLines, placements),
       items,
+      json,
+      loadedMap: map,
     },
+    isLayoutUnreadable,
   };
+}
+
+function readServiceJson(head: string, tail: string, lineEnding: string): ReadJson & { readonly isLayoutUnreadable: boolean } {
+  const fromTail = readJson(tail, lineEnding);
+  if (fromTail.source.status !== "absent") return { ...fromTail, isLayoutUnreadable: fromTail.source.status === "corrupt" };
+  const fromHead = readJson(head, lineEnding, "head");
+  if (fromHead.source.status === "readable") return { ...fromHead, isLayoutUnreadable: false };
+  return { ...fromTail, isLayoutUnreadable: fromHead.source.status === "corrupt" };
+}
+
+function stateEntry(state: NodeState | undefined): { state?: NodeState } {
+  return state === undefined ? {} : { state };
 }
 
 function parseListLine(block: ItemBlock): ParsedListLine {
@@ -113,8 +136,8 @@ function measureIndent(prefix: string): number {
   return [...indent].reduce((width, char) => width + (char === "\t" ? TAB_WIDTH : 1), 0);
 }
 
-function assignIds(lines: readonly ParsedListLine[], random: () => number): AssignedId[] {
-  const taken = new Set<NodeId>();
+function assignIds(lines: readonly ParsedListLine[], jsonIds: ReadonlySet<NodeId>, random: () => number): AssignedId[] {
+  const taken = new Set<NodeId>(jsonIds);
   lines.forEach((line) => line.explicitId !== null && taken.add(line.explicitId));
   const claimed = new Set<NodeId>();
   return lines.map((line): AssignedId => {

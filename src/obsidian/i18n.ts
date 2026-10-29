@@ -2,10 +2,14 @@ const STRINGS = {
   en: {
     openAsMarkdown: "Open as Markdown",
     viewName: "Pinchmap",
+    layoutUnreadable: "Pinchmap: the map layout could not be read, so the automatic layout is used.",
+    mapUpdatedExternally: "Map updated externally",
   },
   ru: {
     openAsMarkdown: "Открыть как Markdown",
     viewName: "Pinchmap",
+    layoutUnreadable: "Pinchmap: раскладка карты не прочитана, используется автораскладка.",
+    mapUpdatedExternally: "Карта обновлена извне",
   },
 } as const;
 

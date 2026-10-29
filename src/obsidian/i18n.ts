@@ -7,6 +7,11 @@ const STRINGS = {
     addChild: "Add child",
     addSibling: "Add sibling",
     done: "Done",
+    newMap: "New map",
+    untitledName: "Untitled",
+    convertToMap: "Convert this note to a map",
+    openAsMap: "Open as map",
+    mapActionFailed: "Pinchmap: the action failed. See the developer console for details.",
   },
   ru: {
     openAsMarkdown: "Открыть как Markdown",
@@ -16,6 +21,11 @@ const STRINGS = {
     addChild: "Добавить дочернюю",
     addSibling: "Добавить соседнюю",
     done: "Готово",
+    newMap: "Новая карта",
+    untitledName: "Без названия",
+    convertToMap: "Превратить эту заметку в карту",
+    openAsMap: "Открыть как карту",
+    mapActionFailed: "Pinchmap: действие не удалось. Подробности в консоли разработчика.",
   },
 } as const;
 

@@ -29,6 +29,12 @@ export class MapFileOpener {
     await leaf.setViewState({ type: MARKDOWN_VIEW_TYPE, state: { file: filePath } });
   }
 
+  async openAsMap(leaf: WorkspaceLeaf, filePath: string): Promise<void> {
+    this.leavesShownAsMarkdown.delete(leaf);
+    await leaf.setViewState({ type: MAP_VIEW_TYPE, state: { file: filePath }, active: true });
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
+  }
+
   private async resolveViewState(leaf: WorkspaceLeaf, viewState: ViewState): Promise<ViewState> {
     const filePath = viewState.state?.file;
     if (viewState.type !== MARKDOWN_VIEW_TYPE || typeof filePath !== "string") return viewState;

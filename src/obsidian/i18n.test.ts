@@ -33,3 +33,22 @@ describe("t done", () => {
     expect(t("done", "en")).toBe("Done");
   });
 });
+
+describe("t map creation labels", () => {
+  it.each([
+    ["newMap", "Новая карта", "New map"],
+    ["untitledName", "Без названия", "Untitled"],
+    ["convertToMap", "Превратить эту заметку в карту", "Convert this note to a map"],
+    ["openAsMap", "Открыть как карту", "Open as map"],
+  ] as const)("returns the %s label in ru and en", (key, ru, en) => {
+    expect(t(key, "ru")).toBe(ru);
+    expect(t(key, "en")).toBe(en);
+  });
+});
+
+describe("t mapActionFailed", () => {
+  it("returns the failure notice in ru and en", () => {
+    expect(t("mapActionFailed", "ru")).toBe("Pinchmap: действие не удалось. Подробности в консоли разработчика.");
+    expect(t("mapActionFailed", "en")).toBe("Pinchmap: the action failed. See the developer console for details.");
+  });
+});

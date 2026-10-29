@@ -895,3 +895,65 @@ describe("MapEditor keyboard shortcuts for text input", () => {
     expect(editor.isEditingText()).toBe(false);
   });
 });
+
+describe("MapEditor beginEditingNode", () => {
+  it("selects the node and opens its text input", () => {
+    openMap(SAMPLE);
+
+    editor.beginEditingNode("b");
+
+    expect(selectedIds()).toEqual(["b"]);
+    expect(nodeElement("b").contains(textarea())).toBe(true);
+    expect(editor.isEditingText()).toBe(true);
+  });
+
+  it("moves the selection from another node to the edited one", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+
+    editor.beginEditingNode("c");
+
+    expect(selectedIds()).toEqual(["c"]);
+  });
+
+  it("opens an empty root for typing with an empty input", () => {
+    openMap(buildMindMap([{ id: "only", text: "", parentId: null }]));
+
+    editor.beginEditingNode("only");
+
+    expect(textarea().value).toBe("");
+    expect(selectedIds()).toEqual(["only"]);
+  });
+
+  it("does nothing for an unknown id", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+
+    editor.beginEditingNode("missing");
+
+    expect(selectedIds()).toEqual(["a"]);
+    expect(editor.isEditingText()).toBe(false);
+    expect(container.querySelector("textarea")).toBeNull();
+    expect(host.onMapChanged).not.toHaveBeenCalled();
+  });
+
+  it("persists the text committed after it", () => {
+    openMap(buildMindMap([{ id: "only", text: "", parentId: null }]));
+    editor.beginEditingNode("only");
+
+    typeAndCommit("First idea");
+
+    expect(getNode(editor.getMap(), "only").text).toBe("First idea");
+    expect(host.onMapChanged).toHaveBeenCalledTimes(1);
+    expect(editor.isEditingText()).toBe(false);
+  });
+
+  it("keeps an emptied existing node on the map when committed empty", () => {
+    openMap(SAMPLE);
+    editor.beginEditingNode("a");
+
+    typeAndCommit("");
+
+    expect(editor.getMap().nodes.has("a")).toBe(true);
+  });
+});

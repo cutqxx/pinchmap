@@ -106,6 +106,13 @@ export class MapEditor {
     this.scheduleFrame();
   }
 
+  beginEditingNode(nodeId: NodeId): void {
+    if (!this.displayMap.nodes.has(nodeId)) return;
+    this.selectedId = nodeId;
+    this.renderFrame();
+    this.beginEditing(nodeId, null);
+  }
+
   isEditingText(): boolean {
     return this.editing !== null;
   }

@@ -53,13 +53,13 @@ function chooseContinuationIndent(item: SourceItem, continuation: readonly strin
   return isMixed ? deriveContinuationIndent(item.prefix) : item.continuationIndent;
 }
 
-export function renderNewItemLines(indent: string, text: string, id: NodeId): string[] {
+export function renderNewItemLines(indent: string, text: string, id: NodeId, lineEnding = "\n"): string[] {
   const prefix = `${indent}- `;
   const item: SourceItem = {
     rawLines: [],
     prefix,
-    lineEnding: "\n",
-    finalLineEnding: "\n",
+    lineEnding,
+    finalLineEnding: lineEnding,
     continuationIndent: deriveContinuationIndent(prefix),
     trailingBlankLines: [],
     text,

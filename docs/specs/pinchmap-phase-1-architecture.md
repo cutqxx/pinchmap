@@ -31,7 +31,7 @@
 | Линтер | ESLint (flat config): `no-restricted-imports` запрещает `obsidian` везде, кроме `src/obsidian/**`; для каждого модуля override с разрешёнными соседями по `BOUNDARIES.md`; запрещены встроенные модули Node (`fs`, `path`, `electron`) — плагин мобильный, `isDesktopOnly: false` | Границы проверяет машина, а не ревью |
 | Метаданные | `manifest.json` (`id: "pinchmap"`, `isDesktopOnly: false`), `versions.json`, `version-bump.mjs`, `styles.css` в корне | Нужны для BRAT и каталога |
 
-**Как тестировать без Obsidian.** Пакет `obsidian` на npm содержит только типы, рантайма в нём нет. Случайный импорт `obsidian` в тестируемом коде упадёт в Vitest — страховка вдобавок к линтеру. Код из `obsidian/`, который нужно покрыть unit-тестами (debounce автосохранения), пишется в файле без импорта `obsidian`, например `src/obsidian/autosave.ts`: правило границ касается импорта пакета, а не папки. Остальное в `obsidian/` проверяется вручную.
+**Как тестировать без Obsidian.** Пакет `obsidian` на npm содержит только типы, рантайма в нём нет. Vitest подменяет `obsidian` пустой заглушкой (`src/obsidian/testSupport/obsidianRuntimeStub.ts`), поэтому случайный импорт не падает сразу: код получает `undefined`. Настоящая страховка — линтер и `vi.mock` в тестах. Код из `obsidian/`, который нужно покрыть unit-тестами (debounce автосохранения), пишется в файле без импорта `obsidian`, например `src/obsidian/autosave.ts`: правило границ касается импорта пакета, а не папки. Остальное в `obsidian/` проверяется вручную.
 
 **Как держать `obsidian/` тонким.** В `obsidian/` нет логики решений. `MapView` только переводит «текст файла ↔ `format.parse/serialize`», создаёт `MapEditor` и передаёт ему колбэки хоста:
 

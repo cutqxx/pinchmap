@@ -76,6 +76,11 @@ export class MapView extends TextFileView {
     }
   }
 
+  beginEditingFirstRoot(): void {
+    const [firstRootId] = this.editor.getMap().rootIds;
+    if (firstRootId !== undefined) this.editor.beginEditingNode(firstRootId);
+  }
+
   clear(): void {
     this.setViewData("", true);
   }

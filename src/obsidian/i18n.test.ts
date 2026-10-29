@@ -23,3 +23,13 @@ describe("t", () => {
     expect(t("viewName", "en")).toBe("Pinchmap");
   });
 });
+
+describe("t done", () => {
+  it("returns Готово for ru", () => {
+    expect(t("done", "ru")).toBe("Готово");
+  });
+
+  it("returns Done for en", () => {
+    expect(t("done", "en")).toBe("Done");
+  });
+});

@@ -141,3 +141,29 @@
   margin-left: -22px;
   transform-origin: 50% 0;
 }
+
+
+.pinchmap-done-bar {
+  position: fixed;
+  z-index: var(--layer-popover, 50);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 var(--size-4-3, 12px);
+  border-top: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+}
+
+.pinchmap-done-bar[hidden] {
+  display: none;
+}
+
+.pinchmap-done-button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--interactive-accent);
+  background: transparent;
+  box-shadow: none;
+  font-weight: var(--font-semibold, 600);
+}

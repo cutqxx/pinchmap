@@ -57,6 +57,10 @@ export class CameraController {
     }
   }
 
+  panBy(dx: number, dy: number): void {
+    this.moveTo(panBy(this.camera, dx, dy));
+  }
+
   destroy(): void {
     this.isDisposed = true;
   }

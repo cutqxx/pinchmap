@@ -85,8 +85,8 @@ function doubleTapOn(target: Element): void {
   flushFrames();
 }
 
-function press(key: string, target: EventTarget = canvas()): void {
-  target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+function press(key: string, target: EventTarget = canvas(), modifiers: KeyboardEventInit = {}): void {
+  target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...modifiers }));
   flushFrames();
 }
 
@@ -100,7 +100,7 @@ function typeAndCommit(text: string): void {
   const input = textarea();
   input.value = text;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  press("Enter", input);
+  press("Enter", input, { ctrlKey: true });
 }
 
 function selectedIds(): string[] {
@@ -550,7 +550,7 @@ describe("MapEditor returning focus to the canvas", () => {
     expect(document.activeElement).toBe(outsideInput);
   });
 
-  it("focuses the canvas after the edit is committed with Enter", () => {
+  it("focuses the canvas after the edit is committed with Ctrl+Enter", () => {
     typeAndCommit("Changed");
 
     expect(document.activeElement).toBe(canvas());
@@ -807,5 +807,91 @@ describe("MapEditor choosing the side of a new branch", () => {
 
     const created = newChildOf("r1", ["l1", "l2"]);
     expect(readSide(getNode(editor.getMap(), created).state)).toBe("right");
+  });
+});
+
+describe("MapEditor keyboard shortcuts for text input", () => {
+  it("opens text input for the selected node on F2", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+
+    press("F2");
+
+    expect(textarea().value).toBe("A");
+    expect(editor.isEditingText()).toBe(true);
+  });
+
+  it("does nothing on F2 when no node is selected", () => {
+    openMap(SAMPLE);
+
+    press("F2");
+
+    expect(container.querySelector("textarea")).toBeNull();
+    expect(editor.isEditingText()).toBe(false);
+  });
+
+  it("saves the text edited after F2 when committed with Ctrl+Enter", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+    press("F2");
+
+    typeAndCommit("Renamed");
+
+    expect(getNode(editor.getMap(), "a").text).toBe("Renamed");
+  });
+
+  it("clears the selection on Escape outside text input", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+
+    press("Escape");
+
+    expect(selectedIds()).toEqual([]);
+    expect(container.querySelector(".pinchmap-add-button")).toBeNull();
+  });
+
+  it("keeps the map unchanged when Escape clears the selection", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+
+    press("Escape");
+
+    expect(editor.getMap()).toBe(SAMPLE);
+    expect(host.onMapChanged).not.toHaveBeenCalled();
+  });
+
+  it("ends text input but keeps the selection when Escape is pressed in the input", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+    press("F2");
+
+    press("Escape", textarea());
+
+    expect(editor.isEditingText()).toBe(false);
+    expect(selectedIds()).toEqual(["a"]);
+  });
+
+  it("creates no node and keeps editing when Enter is pressed in the input", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+    press("F2");
+    const nodeCount = editor.getMap().nodes.size;
+
+    press("Enter", textarea());
+
+    expect(editor.getMap().nodes.size).toBe(nodeCount);
+    expect(editor.isEditingText()).toBe(true);
+  });
+
+  it("creates no node when the input is committed with Ctrl+Enter", () => {
+    openMap(SAMPLE);
+    tapOn(nodeElement("a"));
+    press("F2");
+    const nodeCount = editor.getMap().nodes.size;
+
+    press("Enter", textarea(), { ctrlKey: true });
+
+    expect(editor.getMap().nodes.size).toBe(nodeCount);
+    expect(editor.isEditingText()).toBe(false);
   });
 });

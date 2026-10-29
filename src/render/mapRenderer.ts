@@ -24,6 +24,10 @@ const ADD_BUTTON_KINDS = ["add-child", "add-sibling"] as const;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
+function withTrailingLineVisible(text: string): string {
+  return text.endsWith("\n") ? `${text}\n` : text;
+}
+
 export class MapRenderer {
   readonly canvasElement: HTMLElement;
   private readonly worldElement: HTMLElement;
@@ -116,7 +120,9 @@ export class MapRenderer {
   private syncNodeElement(node: MapNode, ui: RenderUi): void {
     const element = this.nodeElements.get(node.id) ?? this.createNodeElement(node.id);
     const isEditing = ui.editing?.nodeId === node.id;
-    const displayedText = isEditing ? (ui.editing?.draftText ?? node.text) : node.text;
+    const displayedText = isEditing
+      ? withTrailingLineVisible(ui.editing?.draftText ?? node.text)
+      : node.text;
     const textElement = element.firstElementChild;
     if (textElement !== null && textElement.textContent !== displayedText) {
       textElement.textContent = displayedText;

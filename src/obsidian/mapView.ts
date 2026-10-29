@@ -4,6 +4,7 @@ import { MapEditor } from "../editor";
 import { parseMapFile, serializeMapFile } from "../format";
 import type { ParsedMapFile } from "../format";
 import { createDebouncedSave } from "./autosave";
+import { createVisibleAreaSource } from "./visibleArea";
 import { ExternalChangeGate } from "./externalChangeGate";
 import { t } from "./i18n";
 
@@ -36,6 +37,8 @@ export class MapView extends TextFileView {
     this.contentEl.classList.add("pinchmap-view");
     this.editor = new MapEditor({
       container: this.contentEl,
+      visibleArea: createVisibleAreaSource(this.contentEl.ownerDocument.defaultView ?? window),
+      doneLabel: t("done"),
       labels: { addChild: t("addChild"), addSibling: t("addSibling") },
       host: {
         onMapChanged: () => this.autosave.schedule(),

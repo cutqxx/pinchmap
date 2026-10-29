@@ -44,7 +44,9 @@ export type Intent =
   | { readonly type: "gestureEnd" }
   | { readonly type: "addChild" }
   | { readonly type: "addSibling" }
-  | { readonly type: "deleteSelection" };
+  | { readonly type: "deleteSelection" }
+  | { readonly type: "editSelection" }
+  | { readonly type: "clearSelection" };
 
 export interface GestureConfig {
   readonly dragThresholdPx: number;

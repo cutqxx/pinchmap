@@ -15,6 +15,8 @@ const NAVIGATE_INTENTS: ReadonlyMap<string, Intent> = new Map<string, Intent>([
   ["Enter", { type: "addSibling" }],
   ["Delete", { type: "deleteSelection" }],
   ["Backspace", { type: "deleteSelection" }],
+  ["F2", { type: "editSelection" }],
+  ["Escape", { type: "clearSelection" }],
 ]);
 
 export function keyToIntent(chord: KeyChord, mode: KeyMode): Intent | null {

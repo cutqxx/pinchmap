@@ -15,9 +15,11 @@ import type { MindMap, NodeId, RootPosition, Side } from "../model";
 import { MapRenderer } from "../render";
 import type { AddButtonLabels, RenderUi } from "../render";
 import { CameraController, isCameraIntent } from "./cameraController";
+import { KeyboardAssist } from "./keyboardAssist";
 import { selectionAfterDelete } from "./selection";
 import { beginTextEdit } from "./textEditSession";
 import type { TextEditEnd, TextEditSession } from "./textEditSession";
+import type { VisibleAreaSource } from "./visibleArea";
 
 export interface MapHost {
   onMapChanged(): void;
@@ -30,6 +32,8 @@ export interface MapEditorOptions {
   readonly host: MapHost;
   readonly requestFrame?: (callback: () => void) => void;
   readonly labels?: AddButtonLabels;
+  readonly visibleArea?: VisibleAreaSource;
+  readonly doneLabel?: string;
 }
 
 interface EditingState {
@@ -52,6 +56,7 @@ export class MapEditor {
   private readonly camera: CameraController;
   private readonly detachInput: readonly (() => void)[];
   private readonly resizeObserver: ResizeObserver;
+  private readonly keyboardAssist: KeyboardAssist;
   private displayMap: MindMap = EMPTY_MIND_MAP;
   private layout: LayoutResult | null = null;
   private sizes: ReadonlyMap<NodeId, Size> = new Map();
@@ -60,7 +65,14 @@ export class MapEditor {
   private isFramePending = false;
   private isDestroyed = false;
 
-  constructor({ container, host, requestFrame, labels }: MapEditorOptions) {
+  constructor({
+    container,
+    host,
+    requestFrame,
+    labels,
+    visibleArea,
+    doneLabel,
+  }: MapEditorOptions) {
     const view = container.ownerDocument.defaultView;
     this.host = host;
     this.requestFrame = requestFrame ?? ((callback) => void view?.requestAnimationFrame(callback));
@@ -69,6 +81,15 @@ export class MapEditor {
     this.detachInput = this.attachInput(this.renderer.canvasElement);
     this.resizeObserver = new ResizeObserver(() => this.scheduleFrame());
     this.resizeObserver.observe(container);
+    this.keyboardAssist = new KeyboardAssist({
+      visibleArea: visibleArea ?? null,
+      doc: container.ownerDocument,
+      doneLabel: doneLabel ?? "Done",
+      camera: this.camera,
+      canvasElement: this.renderer.canvasElement,
+      onDone: () => this.editing?.session.commit({ kind: "keyboard" }),
+      onVisibleAreaChanged: () => this.onVisibleAreaChanged(),
+    });
   }
 
   getMap(): MindMap {
@@ -98,6 +119,7 @@ export class MapEditor {
     this.isDestroyed = true;
     this.camera.destroy();
     this.resizeObserver.disconnect();
+    this.keyboardAssist.destroy();
     this.detachInput.forEach((detach) => detach());
     this.renderer.destroy();
   }
@@ -133,6 +155,10 @@ export class MapEditor {
         return this.addSiblingToSelection();
       case "deleteSelection":
         return this.deleteSelection();
+      case "editSelection":
+        return this.editSelection();
+      case "clearSelection":
+        return this.select(null);
     }
   }
 
@@ -152,6 +178,10 @@ export class MapEditor {
   private handleDoubleTap(target: HitTarget): void {
     this.handleTap(target);
     if (target.kind === "node") this.beginEditing(target.nodeId, null);
+  }
+
+  private editSelection(): void {
+    if (this.selectedId !== null) this.beginEditing(this.selectedId, null);
   }
 
   private select(nodeId: NodeId | null): void {
@@ -276,11 +306,16 @@ export class MapEditor {
     });
   }
 
+  private onVisibleAreaChanged(): void {
+    if (this.editing !== null) this.scheduleFrame();
+  }
+
   private renderFrame(): void {
     this.renderer.syncContent(this.displayMap, this.currentRenderUi());
     this.sizes = this.renderer.measure();
     this.layout = computeLayout(this.displayMap, this.sizes);
     this.renderer.place(this.displayMap, this.layout);
+    this.keyboardAssist.sync(this.editing?.nodeId ?? null, this.layout, this.sizes);
   }
 
   private currentRenderUi(): RenderUi {

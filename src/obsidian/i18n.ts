@@ -6,6 +6,7 @@ const STRINGS = {
     mapUpdatedExternally: "Map updated externally",
     addChild: "Add child",
     addSibling: "Add sibling",
+    done: "Done",
   },
   ru: {
     openAsMarkdown: "Открыть как Markdown",
@@ -14,6 +15,7 @@ const STRINGS = {
     mapUpdatedExternally: "Карта обновлена извне",
     addChild: "Добавить дочернюю",
     addSibling: "Добавить соседнюю",
+    done: "Готово",
   },
 } as const;
 

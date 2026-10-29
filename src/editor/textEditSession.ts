@@ -13,11 +13,18 @@ export interface TextEditOptions {
 }
 
 export interface TextEditSession {
-  commit(): void;
+  commit(end?: TextEditEnd): void;
   cancel(): void;
 }
 
-const COMMIT_KEYS = ["Escape", "Enter"];
+function isImeComposing(event: KeyboardEvent): boolean {
+  return event.isComposing || event.keyCode === 229;
+}
+
+function isCommitChord(event: KeyboardEvent): boolean {
+  if (event.key === "Escape") return true;
+  return event.key === "Enter" && (event.ctrlKey || event.metaKey);
+}
 
 export function beginTextEdit(options: TextEditOptions): TextEditSession {
   const { nodeElement, initialText, onDraftChanged, onCommitted } = options;
@@ -39,7 +46,7 @@ export function beginTextEdit(options: TextEditOptions): TextEditSession {
     if (finish()) onCommitted(finalText, end);
   };
   const session: TextEditSession = {
-    commit: () => commitEndedBy({ kind: "programmatic" }),
+    commit: (end = { kind: "programmatic" }) => commitEndedBy(end),
     cancel: () => void finish(),
   };
 
@@ -48,7 +55,8 @@ export function beginTextEdit(options: TextEditOptions): TextEditSession {
     commitEndedBy({ kind: "blur", focusTarget: event.relatedTarget }),
   );
   textarea.addEventListener("keydown", (event) => {
-    if (!COMMIT_KEYS.includes(event.key)) return;
+    if (isImeComposing(event)) return;
+    if (!isCommitChord(event)) return;
     event.preventDefault();
     event.stopPropagation();
     commitEndedBy({ kind: "keyboard" });

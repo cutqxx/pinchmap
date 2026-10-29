@@ -2,3 +2,7 @@ export type { SetNodeTextArgs } from "./setNodeText";
 export { setNodeText } from "./setNodeText";
 export type { AddChildArgs } from "./addChild";
 export { addChild } from "./addChild";
+export type { AddSiblingArgs } from "./addSibling";
+export { addSibling } from "./addSibling";
+export type { DeleteBranchArgs } from "./deleteBranch";
+export { deleteBranch } from "./deleteBranch";

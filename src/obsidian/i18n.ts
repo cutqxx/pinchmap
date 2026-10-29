@@ -4,12 +4,16 @@ const STRINGS = {
     viewName: "Pinchmap",
     layoutUnreadable: "Pinchmap: the map layout could not be read, so the automatic layout is used.",
     mapUpdatedExternally: "Map updated externally",
+    addChild: "Add child",
+    addSibling: "Add sibling",
   },
   ru: {
     openAsMarkdown: "Открыть как Markdown",
     viewName: "Pinchmap",
     layoutUnreadable: "Pinchmap: раскладка карты не прочитана, используется автораскладка.",
     mapUpdatedExternally: "Карта обновлена извне",
+    addChild: "Добавить дочернюю",
+    addSibling: "Добавить соседнюю",
   },
 } as const;
 

@@ -786,3 +786,44 @@ describe("GestureRecognizer wheel", () => {
     ).toEqual([]);
   });
 });
+
+describe("GestureRecognizer plus button targets", () => {
+  const ADD_CHILD: HitTarget = { kind: "add-child", nodeId: "a" };
+  const ADD_SIBLING: HitTarget = { kind: "add-sibling", nodeId: "a" };
+
+  it.each([ADD_CHILD, ADD_SIBLING])("reports a tap on the $kind button with its target", (target) => {
+    expect(tap(new GestureRecognizer(), { target })).toEqual([{ type: "tap", target }]);
+  });
+
+  it("reports a mouse click on a plus button as a tap with its target", () => {
+    expect(tap(new GestureRecognizer(), { kind: "mouse", target: ADD_CHILD })).toEqual([
+      { type: "tap", target: ADD_CHILD },
+    ]);
+  });
+
+  it("counts a quick second tap on a plus button as a double tap carrying the button target", () => {
+    const recognizer = new GestureRecognizer();
+
+    const intents = [
+      ...tap(recognizer, { target: ADD_SIBLING, time: 0 }),
+      ...tap(recognizer, { target: ADD_SIBLING, time: 150 }),
+    ];
+
+    expect(intents).toEqual([
+      { type: "tap", target: ADD_SIBLING },
+      { type: "doubleTap", target: ADD_SIBLING },
+    ]);
+  });
+
+  it("does not pan the camera when a finger drags from a plus button", () => {
+    const recognizer = new GestureRecognizer();
+
+    const intents = feed(recognizer, [
+      sample({ phase: "down", target: ADD_CHILD }),
+      sample({ phase: "move", x: 140, target: ADD_CHILD }),
+      sample({ phase: "up", x: 140, target: ADD_CHILD }),
+    ]);
+
+    expect(intents).toEqual([]);
+  });
+});

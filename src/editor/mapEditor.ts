@@ -1,21 +1,23 @@
-import { setNodeText } from "../commands";
+import { addChild, addSibling, deleteBranch, setNodeText } from "../commands";
 import {
   GestureRecognizer,
   attachNativeGestureGuard,
+  attachKeySource,
   attachPointerSource,
   attachSpaceKeySource,
   attachWheelSource,
 } from "../input";
 import type { HitTarget, Intent } from "../input";
-import { computeLayout } from "../layout";
-import type { LayoutResult } from "../layout";
-import { EMPTY_MIND_MAP, getNode, withSidesResolved } from "../model";
-import type { MindMap, NodeId } from "../model";
+import { chooseSideForNewBranch, computeLayout, positionBelowRootTree } from "../layout";
+import type { LayoutResult, Size } from "../layout";
+import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, withSidesResolved } from "../model";
+import type { MindMap, NodeId, RootPosition, Side } from "../model";
 import { MapRenderer } from "../render";
-import type { RenderUi } from "../render";
+import type { AddButtonLabels, RenderUi } from "../render";
 import { CameraController, isCameraIntent } from "./cameraController";
+import { selectionAfterDelete } from "./selection";
 import { beginTextEdit } from "./textEditSession";
-import type { TextEditSession } from "./textEditSession";
+import type { TextEditEnd, TextEditSession } from "./textEditSession";
 
 export interface MapHost {
   onMapChanged(): void;
@@ -27,12 +29,19 @@ export interface MapEditorOptions {
   readonly container: HTMLElement;
   readonly host: MapHost;
   readonly requestFrame?: (callback: () => void) => void;
+  readonly labels?: AddButtonLabels;
 }
 
 interface EditingState {
   readonly nodeId: NodeId;
   readonly session: TextEditSession;
   draftText: string;
+  readonly newNode: NewNodeOrigin | null;
+}
+
+interface NewNodeOrigin {
+  readonly mapBeforeCreation: MindMap;
+  readonly selectionBeforeCreation: NodeId | null;
 }
 
 export class MapEditor {
@@ -43,17 +52,19 @@ export class MapEditor {
   private readonly camera: CameraController;
   private readonly detachInput: readonly (() => void)[];
   private readonly resizeObserver: ResizeObserver;
-  private map: MindMap = EMPTY_MIND_MAP;
+  private displayMap: MindMap = EMPTY_MIND_MAP;
   private layout: LayoutResult | null = null;
+  private sizes: ReadonlyMap<NodeId, Size> = new Map();
   private editing: EditingState | null = null;
+  private selectedId: NodeId | null = null;
   private isFramePending = false;
   private isDestroyed = false;
 
-  constructor({ container, host, requestFrame }: MapEditorOptions) {
+  constructor({ container, host, requestFrame, labels }: MapEditorOptions) {
     const view = container.ownerDocument.defaultView;
     this.host = host;
     this.requestFrame = requestFrame ?? ((callback) => void view?.requestAnimationFrame(callback));
-    this.renderer = new MapRenderer(container);
+    this.renderer = new MapRenderer(container, { labels });
     this.camera = new CameraController(this.renderer, this.requestFrame);
     this.detachInput = this.attachInput(this.renderer.canvasElement);
     this.resizeObserver = new ResizeObserver(() => this.scheduleFrame());
@@ -61,14 +72,16 @@ export class MapEditor {
   }
 
   getMap(): MindMap {
-    return this.map;
+    return this.editing?.newNode?.mapBeforeCreation ?? this.displayMap;
   }
 
   loadMap(map: MindMap): void {
     this.editing?.session.cancel();
     this.editing = null;
-    this.map = map;
+    this.displayMap = map;
+    this.selectedId = null;
     this.layout = null;
+    this.sizes = new Map();
     this.scheduleFrame();
   }
 
@@ -96,6 +109,9 @@ export class MapEditor {
       attachPointerSource(canvas, (sample) => dispatch(this.recognizer.handle(sample))),
       attachWheelSource(canvas, (sample) => dispatch(this.recognizer.handleWheel(sample))),
       attachSpaceKeySource(canvas, (isHeld) => this.recognizer.setSpaceHeld(isHeld)),
+      attachKeySource(canvas, () => (this.editing === null ? "navigate" : "editing"), (intent) =>
+        this.handleIntent(intent),
+      ),
       attachNativeGestureGuard(canvas),
     ];
   }
@@ -106,27 +122,105 @@ export class MapEditor {
       return;
     }
     this.commitPendingEdit();
-    if (intent.type === "doubleTap") {
-      this.startEditingIfNode(intent.target);
+    switch (intent.type) {
+      case "tap":
+        return this.handleTap(intent.target);
+      case "doubleTap":
+        return this.handleDoubleTap(intent.target);
+      case "addChild":
+        return this.addChildToSelection();
+      case "addSibling":
+        return this.addSiblingToSelection();
+      case "deleteSelection":
+        return this.deleteSelection();
     }
   }
 
-  private startEditingIfNode(target: HitTarget): void {
-    if (target.kind !== "node") return;
-    const nodeElement = this.renderer.getNodeElement(target.nodeId);
+  private handleTap(target: HitTarget): void {
+    switch (target.kind) {
+      case "node":
+        return this.select(target.nodeId);
+      case "canvas":
+        return this.select(null);
+      case "add-child":
+        return this.addChildTo(target.nodeId);
+      case "add-sibling":
+        return this.addSiblingTo(target.nodeId);
+    }
+  }
+
+  private handleDoubleTap(target: HitTarget): void {
+    this.handleTap(target);
+    if (target.kind === "node") this.beginEditing(target.nodeId, null);
+  }
+
+  private select(nodeId: NodeId | null): void {
+    this.selectedId = nodeId;
+    this.renderer.focusCanvas();
+    this.scheduleFrame();
+  }
+
+  private addChildToSelection(): void {
+    if (this.selectedId !== null) this.addChildTo(this.selectedId);
+  }
+
+  private addSiblingToSelection(): void {
+    if (this.selectedId !== null) this.addSiblingTo(this.selectedId);
+  }
+
+  private addChildTo(parentId: NodeId): void {
+    const side = this.layout === null ? "right" : chooseSideForNewBranch(this.layout, parentId);
+    this.createNode((map, id) => addChild(map, { parentId, id, text: "", side }));
+  }
+
+  private addSiblingTo(anchorId: NodeId): void {
+    const side: Side = this.layout?.sides.get(anchorId) ?? "right";
+    const rootPosition = this.positionForNewRootBelow(anchorId);
+    this.createNode((map, id) => addSibling(map, { anchorId, id, text: "", side, rootPosition }));
+  }
+
+  private positionForNewRootBelow(anchorId: NodeId): RootPosition | undefined {
+    const rootSize = this.sizes.get(anchorId);
+    const anchor = getNode(this.displayMap, anchorId);
+    const isPinnedRoot = anchor.parentId === null && readRootPosition(anchor.state) !== undefined;
+    if (!isPinnedRoot || this.layout === null || rootSize === undefined) return undefined;
+    return positionBelowRootTree(this.layout, anchorId, rootSize) ?? undefined;
+  }
+
+  private createNode(command: (map: MindMap, id: NodeId) => MindMap): void {
+    const mapBeforeCreation = this.mapWithSettledSides();
+    const nodeId = generateNodeId(new Set(mapBeforeCreation.nodes.keys()));
+    const origin = { mapBeforeCreation, selectionBeforeCreation: this.selectedId };
+    this.displayMap = command(mapBeforeCreation, nodeId);
+    this.selectedId = nodeId;
+    this.renderFrame();
+    this.beginEditing(nodeId, origin);
+  }
+
+  private deleteSelection(): void {
+    const nodeId = this.selectedId;
+    if (nodeId === null) return;
+    this.selectedId = selectionAfterDelete(this.displayMap, nodeId);
+    this.displayMap = deleteBranch(this.mapWithSettledSides(), { nodeId });
+    this.host.onMapChanged();
+    this.scheduleFrame();
+  }
+
+  private beginEditing(nodeId: NodeId, newNode: NewNodeOrigin | null): void {
+    const nodeElement = this.renderer.getNodeElement(nodeId);
     if (nodeElement === undefined) return;
-    const text = getNode(this.map, target.nodeId).text;
-    const editing: EditingState = {
-      nodeId: target.nodeId,
+    const text = getNode(this.displayMap, nodeId).text;
+    this.editing = {
+      nodeId,
       draftText: text,
+      newNode,
       session: beginTextEdit({
         nodeElement,
         initialText: text,
         onDraftChanged: (draft) => this.updateDraft(draft),
-        onCommitted: (finalText) => this.finishEditing(target.nodeId, finalText),
+        onCommitted: (finalText, end) => this.finishEditing(nodeId, finalText, end),
       }),
     };
-    this.editing = editing;
     this.scheduleFrame();
   }
 
@@ -136,20 +230,41 @@ export class MapEditor {
     this.scheduleFrame();
   }
 
-  private finishEditing(nodeId: NodeId, finalText: string): void {
+  private finishEditing(nodeId: NodeId, finalText: string, end: TextEditEnd): void {
+    const newNode = this.editing?.newNode ?? null;
     this.editing = null;
-    const settledMap = this.mapWithSettledSides();
-    const updatedMap = setNodeText(settledMap, { nodeId, text: finalText });
-    if (updatedMap !== settledMap) {
-      this.map = updatedMap;
-      this.host.onMapChanged();
+    if (newNode !== null && finalText === "") {
+      this.discardNewNode(newNode);
+    } else {
+      this.commitText(nodeId, finalText);
     }
+    if (this.shouldRefocusCanvas(end)) this.renderer.focusCanvas();
     this.scheduleFrame();
     this.host.onTextEditEnded();
   }
 
+  private shouldRefocusCanvas(end: TextEditEnd): boolean {
+    if (end.kind === "keyboard") return true;
+    if (end.kind === "programmatic") return false;
+    const target = end.focusTarget;
+    return target instanceof Node && this.renderer.canvasElement.contains(target);
+  }
+
+  private discardNewNode({ mapBeforeCreation, selectionBeforeCreation }: NewNodeOrigin): void {
+    this.displayMap = mapBeforeCreation;
+    this.selectedId = selectionBeforeCreation;
+  }
+
+  private commitText(nodeId: NodeId, finalText: string): void {
+    const settledMap = this.mapWithSettledSides();
+    const updatedMap = setNodeText(settledMap, { nodeId, text: finalText });
+    if (updatedMap === settledMap) return;
+    this.displayMap = updatedMap;
+    this.host.onMapChanged();
+  }
+
   private mapWithSettledSides(): MindMap {
-    return this.layout === null ? this.map : withSidesResolved(this.map, this.layout.sides);
+    return this.layout === null ? this.displayMap : withSidesResolved(this.displayMap, this.layout.sides);
   }
 
   private scheduleFrame(): void {
@@ -162,14 +277,17 @@ export class MapEditor {
   }
 
   private renderFrame(): void {
-    this.renderer.syncContent(this.map, this.currentRenderUi());
-    const sizes = this.renderer.measure();
-    this.layout = computeLayout(this.map, sizes);
-    this.renderer.place(this.map, this.layout);
+    this.renderer.syncContent(this.displayMap, this.currentRenderUi());
+    this.sizes = this.renderer.measure();
+    this.layout = computeLayout(this.displayMap, this.sizes);
+    this.renderer.place(this.displayMap, this.layout);
   }
 
   private currentRenderUi(): RenderUi {
     const editing = this.editing;
-    return { editing: editing && { nodeId: editing.nodeId, draftText: editing.draftText } };
+    return {
+      editing: editing && { nodeId: editing.nodeId, draftText: editing.draftText },
+      selectedId: this.selectedId,
+    };
   }
 }

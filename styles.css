@@ -95,3 +95,49 @@
   font-size: calc(var(--font-text-size, 16px) * 1.25);
   font-weight: var(--font-semibold, 600);
 }
+
+.pinchmap-node.is-selected {
+  z-index: 1;
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.pinchmap-add-button {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  transform: scale(calc(1 / var(--pinchmap-zoom, 1)));
+}
+
+.pinchmap-add-button::after {
+  content: "+";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-size: 16px;
+  font-weight: var(--font-semibold, 600);
+  line-height: 1;
+}
+
+.pinchmap-add-button.is-child {
+  top: 50%;
+  left: 100%;
+  margin-top: -22px;
+  transform-origin: 0 50%;
+}
+
+.pinchmap-add-button.is-sibling {
+  top: 100%;
+  left: 50%;
+  margin-left: -22px;
+  transform-origin: 50% 0;
+}

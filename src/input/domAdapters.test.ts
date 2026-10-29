@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attachNativeGestureGuard } from "./domNativeGestureGuard";
+import { attachKeySource } from "./domKeySource";
 import { attachPointerSource } from "./domPointerSource";
 import { attachSpaceKeySource } from "./domSpaceKeySource";
 import { attachWheelSource } from "./domWheelSource";
-import type { PointerSample, WheelSample } from "./gestureRecognizer";
+import type { Intent, PointerSample, WheelSample } from "./gestureRecognizer";
+import type { KeyMode } from "./keymap";
 
 let parent: HTMLElement;
 let element: HTMLElement;
@@ -370,6 +372,36 @@ describe("attachPointerSource", () => {
     expect(samples[0]?.target).toEqual({ kind: "canvas" });
   });
 
+  it.each(["add-child", "add-sibling"])("reports a %s target with the node id from a plus button", (kind) => {
+    const node = document.createElement("div");
+    node.setAttribute("data-pinchmap-hit", "node");
+    node.setAttribute("data-node-id", "n1");
+    const button = document.createElement("div");
+    button.setAttribute("data-pinchmap-hit", kind);
+    button.setAttribute("data-node-id", "n1");
+    node.appendChild(button);
+    element.appendChild(node);
+    const samples: PointerSample[] = [];
+    attachPointerSource(element, (s) => samples.push(s));
+
+    dispatch(button, pointer("pointerdown", { pointerType: "touch" }));
+
+    expect(samples[0]?.target).toEqual({ kind, nodeId: "n1" });
+  });
+
+  it("falls back to the canvas target for an unknown hit kind", () => {
+    const stray = document.createElement("div");
+    stray.setAttribute("data-pinchmap-hit", "mystery");
+    stray.setAttribute("data-node-id", "n1");
+    element.appendChild(stray);
+    const samples: PointerSample[] = [];
+    attachPointerSource(element, (s) => samples.push(s));
+
+    dispatch(stray, pointer("pointerdown", { pointerType: "touch" }));
+
+    expect(samples[0]?.target).toEqual({ kind: "canvas" });
+  });
+
   it("ignores pointer events on a text input", () => {
     const onSample = vi.fn();
     attachPointerSource(element, onSample);
@@ -388,5 +420,188 @@ describe("attachPointerSource", () => {
     dispatch(element, pointer("pointerdown", { pointerType: "touch" }));
 
     expect(onSample).not.toHaveBeenCalled();
+  });
+});
+
+describe("attachPointerSource on a plus button", () => {
+  type ElementsFromPoint = Document["elementsFromPoint"] | undefined;
+  let originalElementsFromPoint: ElementsFromPoint;
+  let plusButton: HTMLElement;
+  let ownNode: HTMLElement;
+  let otherNode: HTMLElement;
+
+  function hitElement(kind: string, nodeId?: string): HTMLElement {
+    const hit = document.createElement("div");
+    hit.setAttribute("data-pinchmap-hit", kind);
+    if (nodeId !== undefined) hit.setAttribute("data-node-id", nodeId);
+    return hit;
+  }
+
+  function stubStack(stack: readonly Element[] | undefined): void {
+    const stub = stack === undefined ? undefined : () => [...stack];
+    Object.defineProperty(document, "elementsFromPoint", { value: stub, configurable: true, writable: true });
+  }
+
+  function pressPlus(): PointerSample {
+    const samples: PointerSample[] = [];
+    attachPointerSource(element, (s) => samples.push(s));
+    element.setPointerCapture = vi.fn();
+    dispatch(plusButton, new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "touch" }));
+    return samples[0] as PointerSample;
+  }
+
+  beforeEach(() => {
+    originalElementsFromPoint = document.elementsFromPoint;
+    ownNode = hitElement("node", "a");
+    plusButton = hitElement("add-sibling", "a");
+    otherNode = hitElement("node", "b");
+    ownNode.appendChild(plusButton);
+    element.append(ownNode, otherNode);
+  });
+
+  afterEach(() => {
+    Object.defineProperty(document, "elementsFromPoint", {
+      value: originalElementsFromPoint,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  it("targets the plus button when only its own node and the canvas are under the pointer", () => {
+    stubStack([plusButton, ownNode, element, parent]);
+
+    expect(pressPlus().target).toEqual({ kind: "add-sibling", nodeId: "a" });
+  });
+
+  it("targets the plus button when only the canvas is under the pointer besides it", () => {
+    stubStack([plusButton, element]);
+
+    expect(pressPlus().target).toEqual({ kind: "add-sibling", nodeId: "a" });
+  });
+
+  it("targets another node when it is under the pointer, even beneath the plus button", () => {
+    stubStack([plusButton, ownNode, otherNode, element]);
+
+    expect(pressPlus().target).toEqual({ kind: "node", nodeId: "b" });
+  });
+
+  it("targets the first other node in the stack when several are under the pointer", () => {
+    const thirdNode = hitElement("node", "c");
+    element.appendChild(thirdNode);
+    stubStack([plusButton, thirdNode, otherNode]);
+
+    expect(pressPlus().target).toEqual({ kind: "node", nodeId: "c" });
+  });
+
+  it("targets the plus button when the document cannot tell what is under the pointer", () => {
+    stubStack(undefined);
+
+    expect(pressPlus().target).toEqual({ kind: "add-sibling", nodeId: "a" });
+  });
+
+  it("does not look beneath a node that was hit directly", () => {
+    const lookup = vi.fn(() => [otherNode]);
+    Object.defineProperty(document, "elementsFromPoint", { value: lookup, configurable: true, writable: true });
+    const samples: PointerSample[] = [];
+    attachPointerSource(element, (s) => samples.push(s));
+    element.setPointerCapture = vi.fn();
+
+    dispatch(ownNode, new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "touch" }));
+
+    expect(samples[0]?.target).toEqual({ kind: "node", nodeId: "a" });
+  });
+
+  it("targets the add-child button the same way", () => {
+    const addChildButton = hitElement("add-child", "a");
+    ownNode.appendChild(addChildButton);
+    stubStack([addChildButton, ownNode, otherNode]);
+    const samples: PointerSample[] = [];
+    attachPointerSource(element, (s) => samples.push(s));
+    element.setPointerCapture = vi.fn();
+
+    dispatch(addChildButton, new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "touch" }));
+
+    expect(samples[0]?.target).toEqual({ kind: "node", nodeId: "b" });
+  });
+});
+
+describe("attachKeySource", () => {
+  function keydown(target: EventTarget, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+    const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  function attach(mode: KeyMode = "navigate"): { intents: Intent[]; detach: () => void } {
+    const intents: Intent[] = [];
+    const detach = attachKeySource(element, () => mode, (intent) => intents.push(intent));
+    return { intents, detach };
+  }
+
+  it("reports the intent of a mapped key and prevents its default action", () => {
+    const { intents } = attach();
+
+    const event = keydown(element, "Tab");
+
+    expect(intents).toEqual([{ type: "addChild" }]);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("leaves unmapped keys alone", () => {
+    const { intents } = attach();
+
+    const event = keydown(element, "a");
+
+    expect(intents).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("leaves a mapped key with a modifier alone", () => {
+    const { intents } = attach();
+
+    const event = keydown(element, "Tab", { ctrlKey: true });
+
+    expect(intents).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("does not react to mapped keys while the editor is in editing mode", () => {
+    const { intents } = attach("editing");
+
+    const event = keydown(element, "Backspace");
+
+    expect(intents).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it.each(["Delete", "Backspace", "Enter", "Tab"])("treats %s in a textarea as editing even in navigate mode", (key) => {
+    const { intents } = attach("navigate");
+
+    const event = keydown(textarea, key);
+
+    expect(intents).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("reads the mode at the time of each key press", () => {
+    let mode: KeyMode = "editing";
+    const intents: Intent[] = [];
+    attachKeySource(element, () => mode, (intent) => intents.push(intent));
+
+    keydown(element, "Delete");
+    mode = "navigate";
+    keydown(element, "Delete");
+
+    expect(intents).toEqual([{ type: "deleteSelection" }]);
+  });
+
+  it("stops handling keys after detach", () => {
+    const { intents, detach } = attach();
+    detach();
+
+    const event = keydown(element, "Enter");
+
+    expect(intents).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
   });
 });

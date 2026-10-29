@@ -48,15 +48,31 @@ function toSample(
     y: event.clientY - bounds.top,
     time: event.timeStamp,
     button: event.button,
-    target: findHitTarget(event.target),
+    target: findHitTarget(event),
   };
 }
 
-function findHitTarget(eventTarget: EventTarget | null): HitTarget {
+function findHitTarget(event: PointerEvent): HitTarget {
+  const target = hitTargetOf(event.target);
+  if (target.kind !== "add-child" && target.kind !== "add-sibling") return target;
+  return nodeUnderPointerOtherThan(event, target.nodeId) ?? target;
+}
+
+function hitTargetOf(eventTarget: EventTarget | null): HitTarget {
   const hitElement = closestElement(eventTarget, HIT_SELECTOR);
   const nodeId = hitElement?.getAttribute("data-node-id");
-  if (hitElement?.getAttribute("data-pinchmap-hit") === "node" && nodeId) {
-    return { kind: "node", nodeId };
+  const kind = hitElement?.getAttribute("data-pinchmap-hit");
+  if (nodeId && (kind === "node" || kind === "add-child" || kind === "add-sibling")) {
+    return { kind, nodeId };
   }
   return { kind: "canvas" };
+}
+
+function nodeUnderPointerOtherThan(event: PointerEvent, ownerNodeId: string): HitTarget | null {
+  const stack = (event.target as Node).ownerDocument?.elementsFromPoint?.(event.clientX, event.clientY) ?? [];
+  for (const element of stack) {
+    const target = hitTargetOf(element);
+    if (target.kind === "node" && target.nodeId !== ownerNodeId) return target;
+  }
+  return null;
 }

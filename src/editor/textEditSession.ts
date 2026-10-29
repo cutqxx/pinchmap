@@ -1,10 +1,15 @@
 import { canonicalNodeText } from "../model";
 
+export type TextEditEnd =
+  | { readonly kind: "keyboard" }
+  | { readonly kind: "programmatic" }
+  | { readonly kind: "blur"; readonly focusTarget: EventTarget | null };
+
 export interface TextEditOptions {
   readonly nodeElement: HTMLElement;
   readonly initialText: string;
   readonly onDraftChanged: (text: string) => void;
-  readonly onCommitted: (text: string) => void;
+  readonly onCommitted: (text: string, end: TextEditEnd) => void;
 }
 
 export interface TextEditSession {
@@ -29,21 +34,24 @@ export function beginTextEdit(options: TextEditOptions): TextEditSession {
     textarea.remove();
     return true;
   };
+  const commitEndedBy = (end: TextEditEnd): void => {
+    const finalText = canonicalNodeText(readDraft());
+    if (finish()) onCommitted(finalText, end);
+  };
   const session: TextEditSession = {
-    commit: () => {
-      const finalText = canonicalNodeText(readDraft());
-      if (finish()) onCommitted(finalText);
-    },
+    commit: () => commitEndedBy({ kind: "programmatic" }),
     cancel: () => void finish(),
   };
 
   textarea.addEventListener("input", () => onDraftChanged(readDraft()));
-  textarea.addEventListener("blur", session.commit);
+  textarea.addEventListener("blur", (event) =>
+    commitEndedBy({ kind: "blur", focusTarget: event.relatedTarget }),
+  );
   textarea.addEventListener("keydown", (event) => {
     if (!COMMIT_KEYS.includes(event.key)) return;
     event.preventDefault();
     event.stopPropagation();
-    session.commit();
+    commitEndedBy({ kind: "keyboard" });
   });
 
   nodeElement.appendChild(textarea);

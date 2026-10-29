@@ -120,7 +120,7 @@ interface MindMap { readonly rootIds: readonly NodeId[]; readonly nodes: Readonl
 
 **Без потерь.** `parseMapFile(text) → { map, source }`. `source` — непрозрачный `SourceLayout`: frontmatter, текст до и после списка, сырые строки каждого пункта по `NodeId`, единица отступа, положение JSON-блока. `serializeMapFile(map, source) → text` выводит исходные строки пункта байт в байт, если текст, глубина и ID не менялись, иначе пишет строку заново с отступом файла.
 
-**Команды (Р-4).** Чистые функции `(map, args, ctx) → MindMap`; `ctx` — генератор ID. Undo/redo — снимки: `History { push(previous), undo(current), redo(current), canUndo, canRedo, clear() }`, глубина ограничена (≈200). Одна сессия ввода — одна запись: при входе запоминаем `base`, при завершении один `history.push(base)`. Новая нода, оставленная пустой, — `base` восстанавливается, в историю ничего не пишется.
+**Команды (Р-4).** Чистые функции `(map, args) → MindMap`; ID новой ноды приходит в `args` (его генерирует `editor/` через `generateNodeId`), генератора в `ctx` нет. Undo/redo — снимки: `History { push(previous), undo(current), redo(current), canUndo, canRedo, clear() }`, глубина ограничена (≈200). Одна сессия ввода — одна запись: при входе запоминаем `base`, при завершении один `history.push(base)`. Новая нода, оставленная пустой, — `base` восстанавливается, в историю ничего не пишется.
 
 **Что зависит от раскладки, решает `editor/`.** Сторону новой ветки первого уровня `editor` берёт из `layout.chooseSideForNewBranch(layoutResult, rootId)` и передаёт аргументом в команду.
 

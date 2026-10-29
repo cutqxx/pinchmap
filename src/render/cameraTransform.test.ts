@@ -51,4 +51,21 @@ describe("MapRenderer camera", () => {
 
     expect(renderer.canvasElement.tabIndex).toBe(0);
   });
+
+  it("exposes the zoom as a CSS variable on the world so plus buttons can keep a constant size", () => {
+    const { renderer, world } = setup();
+
+    renderer.setCamera({ x: 0, y: 0, zoom: 2.5 });
+
+    expect(world.style.getPropertyValue("--pinchmap-zoom")).toBe("2.5");
+  });
+
+  it("updates the zoom variable on each camera change", () => {
+    const { renderer, world } = setup();
+    renderer.setCamera({ x: 0, y: 0, zoom: 2 });
+
+    renderer.setCamera({ x: 0, y: 0, zoom: 0.25 });
+
+    expect(world.style.getPropertyValue("--pinchmap-zoom")).toBe("0.25");
+  });
 });

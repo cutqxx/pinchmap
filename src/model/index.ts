@@ -14,4 +14,6 @@ export { canonicalNodeText } from "./nodeText";
 export type { JsonObject, JsonValue, NodeState } from "./nodeState";
 export { isJsonObject } from "./nodeState";
 export type { RootPosition, Side } from "./nodeFields";
-export { readRootPosition, readSide, withSide } from "./nodeFields";
+export { readRootPosition, readSide, withRootPosition, withSide } from "./nodeFields";
+export type { NewSiblingEntry } from "./branchEdits";
+export { withNewSibling, withoutBranch } from "./branchEdits";

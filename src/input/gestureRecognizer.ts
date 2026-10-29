@@ -4,7 +4,9 @@ import { wheelToIntent } from "./wheelIntent";
 
 export type PointerKind = "touch" | "mouse";
 
-export type HitTarget = { readonly kind: "node"; readonly nodeId: string } | { readonly kind: "canvas" };
+export type HitTarget =
+  | { readonly kind: "node" | "add-child" | "add-sibling"; readonly nodeId: string }
+  | { readonly kind: "canvas" };
 
 export interface PointerSample {
   readonly phase: "down" | "move" | "up" | "cancel";
@@ -39,7 +41,10 @@ export type Intent =
     }
   | { readonly type: "wheelPan"; readonly dx: number; readonly dy: number }
   | { readonly type: "wheelZoom"; readonly center: ScreenPoint; readonly scaleDelta: number }
-  | { readonly type: "gestureEnd" };
+  | { readonly type: "gestureEnd" }
+  | { readonly type: "addChild" }
+  | { readonly type: "addSibling" }
+  | { readonly type: "deleteSelection" };
 
 export interface GestureConfig {
   readonly dragThresholdPx: number;

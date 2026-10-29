@@ -20,6 +20,10 @@ export function withSide(state: NodeState | undefined, side: Side): NodeState | 
   return Object.keys(updated).length === 0 ? undefined : updated;
 }
 
+export function withRootPosition(state: NodeState | undefined, position: RootPosition): NodeState {
+  return { ...state, x: position.x, y: position.y };
+}
+
 export function readRootPosition(state: NodeState | undefined): RootPosition | undefined {
   const x = state?.x;
   const y = state?.y;

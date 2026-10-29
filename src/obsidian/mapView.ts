@@ -36,6 +36,7 @@ export class MapView extends TextFileView {
     this.contentEl.classList.add("pinchmap-view");
     this.editor = new MapEditor({
       container: this.contentEl,
+      labels: { addChild: t("addChild"), addSibling: t("addSibling") },
       host: {
         onMapChanged: () => this.autosave.schedule(),
         onTextEditEnded: () => this.externalChanges.resumeAfterTextEdit(),

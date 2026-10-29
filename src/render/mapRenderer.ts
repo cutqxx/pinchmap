@@ -5,7 +5,22 @@ import { edgePath } from "./edgePath";
 
 export interface RenderUi {
   readonly editing: { readonly nodeId: NodeId; readonly draftText: string } | null;
+  readonly selectedId: NodeId | null;
 }
+
+export interface AddButtonLabels {
+  readonly addChild: string;
+  readonly addSibling: string;
+}
+
+export interface MapRendererOptions {
+  readonly labels?: AddButtonLabels;
+}
+
+const DEFAULT_LABELS: AddButtonLabels = { addChild: "Add child", addSibling: "Add sibling" };
+
+const ADD_BUTTON_CLASS = "pinchmap-add-button";
+const ADD_BUTTON_KINDS = ["add-child", "add-sibling"] as const;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
@@ -18,7 +33,10 @@ export class MapRenderer {
   private readonly sizes = new Map<NodeId, Size>();
   private readonly dirtyIds = new Set<NodeId>();
 
-  constructor(container: HTMLElement) {
+  private readonly labels: AddButtonLabels;
+
+  constructor(container: HTMLElement, { labels = DEFAULT_LABELS }: MapRendererOptions = {}) {
+    this.labels = labels;
     const doc = container.ownerDocument;
     this.canvasElement = doc.createElement("div");
     this.canvasElement.className = "pinchmap-canvas";
@@ -37,8 +55,13 @@ export class MapRenderer {
     return this.nodeElements.get(id);
   }
 
+  focusCanvas(): void {
+    this.canvasElement.focus({ preventScroll: true });
+  }
+
   setCamera(camera: Camera): void {
     this.worldElement.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
+    this.worldElement.style.setProperty("--pinchmap-zoom", String(camera.zoom));
   }
 
   setGestureActive(isActive: boolean): void {
@@ -101,6 +124,27 @@ export class MapRenderer {
     }
     element.classList.toggle("is-editing", isEditing);
     element.classList.toggle("is-root", node.parentId === null);
+    const isSelected = ui.selectedId === node.id;
+    element.classList.toggle("is-selected", isSelected);
+    this.syncAddButtons(element, node.id, isSelected && !isEditing);
+  }
+
+  private syncAddButtons(element: HTMLElement, id: NodeId, shouldShow: boolean): void {
+    const existing = element.querySelectorAll(`.${ADD_BUTTON_CLASS}`);
+    if (shouldShow === (existing.length > 0)) return;
+    existing.forEach((button) => button.remove());
+    if (!shouldShow) return;
+    ADD_BUTTON_KINDS.forEach((kind) => element.appendChild(this.createAddButton(kind, id)));
+  }
+
+  private createAddButton(kind: (typeof ADD_BUTTON_KINDS)[number], id: NodeId): HTMLElement {
+    const button = this.canvasElement.ownerDocument.createElement("div");
+    button.className = `${ADD_BUTTON_CLASS} is-${kind === "add-child" ? "child" : "sibling"}`;
+    button.setAttribute("data-pinchmap-hit", kind);
+    button.setAttribute("data-node-id", id);
+    button.setAttribute("role", "button");
+    button.setAttribute("aria-label", kind === "add-child" ? this.labels.addChild : this.labels.addSibling);
+    return button;
   }
 
   private createNodeElement(id: NodeId): HTMLElement {

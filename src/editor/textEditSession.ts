@@ -1,3 +1,5 @@
+import { canonicalNodeText } from "../model";
+
 export interface TextEditOptions {
   readonly nodeElement: HTMLElement;
   readonly initialText: string;
@@ -20,7 +22,7 @@ export function beginTextEdit(options: TextEditOptions): TextEditSession {
   textarea.value = initialText;
   let isFinished = false;
 
-  const readDraft = (): string => collapseLineBreaks(textarea.value);
+  const readDraft = (): string => textarea.value;
   const finish = (): boolean => {
     if (isFinished) return false;
     isFinished = true;
@@ -29,7 +31,7 @@ export function beginTextEdit(options: TextEditOptions): TextEditSession {
   };
   const session: TextEditSession = {
     commit: () => {
-      const finalText = readDraft().trim();
+      const finalText = canonicalNodeText(readDraft());
       if (finish()) onCommitted(finalText);
     },
     cancel: () => void finish(),
@@ -48,8 +50,4 @@ export function beginTextEdit(options: TextEditOptions): TextEditSession {
   textarea.focus();
   textarea.setSelectionRange(initialText.length, initialText.length);
   return session;
-}
-
-function collapseLineBreaks(text: string): string {
-  return text.replace(/\r?\n/g, " ");
 }

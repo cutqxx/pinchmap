@@ -8,3 +8,4 @@ export {
   withNodeText,
   listNodesInDocumentOrder,
 } from "./mindMap";
+export { canonicalNodeText } from "./nodeText";

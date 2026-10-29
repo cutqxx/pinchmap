@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getNode, listNodesInDocumentOrder } from "../model";
 import type { MindMap } from "../model";
 import { parseMapFile } from "./parseMapFile";
+import { serializeMapFile } from "./serializeMapFile";
 
 function outline(map: MindMap): string[] {
   return listNodesInDocumentOrder(map).map(({ node, depth }) => `${depth}:${node.text}`);
@@ -237,5 +238,198 @@ describe("parseMapFile line endings", () => {
     const { map } = parseMapFile("- \n- b\n");
 
     expect(outline(map)).toEqual(["0:", "0:b"]);
+  });
+});
+
+describe("parseMapFile multi-line node text", () => {
+  it("reads indented continuation lines as one node with multi-line text", () => {
+    const { map } = parseMapFile("- first\n  second\n  third\n- other\n");
+
+    expect(outline(map)).toEqual(["0:first\nsecond\nthird", "0:other"]);
+  });
+
+  it("does not put the continuation indent into the text", () => {
+    expect(parseOutline("- a\n    b\n")).toEqual(["0:a\nb"]);
+  });
+
+  it("reads tab-indented continuation lines", () => {
+    expect(parseOutline("- a\n\t- b\n\t  more\n")).toEqual(["0:a", "1:b\nmore"]);
+  });
+
+  it("keeps the id out of the text when it ends the first line", () => {
+    const { map } = parseMapFile("- first ^id1\n  second\n");
+
+    expect(getNode(map, "id1").text).toBe("first\nsecond");
+  });
+
+  it("does not read a caret-word on a continuation line as the id", () => {
+    const { map, source } = parseMapFile("- first\n  second ^notid\n", sequenceRandom());
+
+    expect(outline(map)).toEqual(["0:first\nsecond ^notid"]);
+    expect([...map.nodes.keys()]).not.toContain("notid");
+    expect(source.items.size).toBe(1);
+  });
+
+  it("keeps extra indentation of a continuation line relative to the first one", () => {
+    expect(parseOutline("- a\n  b\n    c\n")).toEqual(["0:a\nb\n  c"]);
+  });
+
+  it("keeps an empty line between continuation lines as an empty text line", () => {
+    expect(parseOutline("- a\n  b\n\n  c\n")).toEqual(["0:a\nb\n\nc"]);
+  });
+
+  it("does not include blank lines after the last continuation line in the text", () => {
+    expect(parseOutline("- a\n  b\n\n- c\n")).toEqual(["0:a\nb", "0:c"]);
+  });
+
+  it("reads CRLF continuation lines without carriage returns", () => {
+    expect(parseOutline("- a\r\n  b\r\n  c\r\n")).toEqual(["0:a\nb\nc"]);
+  });
+
+  it("reads a continuation line at the end of a file without trailing newline", () => {
+    expect(parseOutline("- a\n  b")).toEqual(["0:a\nb"]);
+  });
+
+  it("reads an item as single-line text when no continuation follows", () => {
+    expect(parseOutline("- a\n- b\n")).toEqual(["0:a", "0:b"]);
+  });
+
+  it("reads a nested item as a child, not as a continuation", () => {
+    expect(parseOutline("- a\n  - b\n")).toEqual(["0:a", "1:b"]);
+  });
+
+  it("attaches a continuation after a nested item to that nested item", () => {
+    expect(parseOutline("- a\n  - b\n    more\n- c\n")).toEqual(["0:a", "1:b\nmore", "0:c"]);
+  });
+});
+
+describe("parseMapFile list end rules", () => {
+  it("ends the list at the first non-blank line that is neither an item nor an indented line", () => {
+    const { map, source } = parseMapFile("- a\nplain\n- b\n");
+
+    expect(outline(map)).toEqual(["0:a"]);
+    expect(source.tail).toBe("plain\n- b\n");
+  });
+
+  it("keeps blank lines inside the list when more list content follows", () => {
+    const { map } = parseMapFile("- a\n\n\n- b\n");
+
+    expect(outline(map)).toEqual(["0:a", "0:b"]);
+  });
+
+  it("keeps blank lines inside the list when an indented continuation follows them", () => {
+    expect(parseOutline("- a\n\n  more\n")).toEqual(["0:a\n\nmore"]);
+  });
+
+  it("puts blank lines after the list into the tail", () => {
+    const { source } = parseMapFile("- a\n\n\nText\n");
+
+    expect(source.tail).toBe("\n\nText\n");
+  });
+
+  it("treats a whitespace-only line as a blank line that ends the list", () => {
+    const { map, source } = parseMapFile("- a\n   \nText\n");
+
+    expect(outline(map)).toEqual(["0:a"]);
+    expect(source.tail).toBe("   \nText\n");
+  });
+
+  it("ignores a second list after text, keeping it in the tail", () => {
+    const { map, source } = parseMapFile("- a\n\nText\n\n- other\n  - nested\n");
+
+    expect(outline(map)).toEqual(["0:a"]);
+    expect(source.tail).toBe("\nText\n\n- other\n  - nested\n");
+  });
+});
+
+describe("parseMapFile text outside the map", () => {
+  it("stores text between frontmatter and the list in head, byte for byte", () => {
+    const { source } = parseMapFile("---\nmindmap: true\n---\nIntro\n\n  indented intro\n- a\n");
+
+    expect(source.head).toBe("---\nmindmap: true\n---\nIntro\n\n  indented intro\n");
+  });
+
+  it("stores text after the list including a JSON block in tail, byte for byte", () => {
+    const { source } = parseMapFile("- a\n\nOutro\n\n%%\n```json\n{}\n```\n%%\n");
+
+    expect(source.tail).toBe("\nOutro\n\n%%\n```json\n{}\n```\n%%\n");
+  });
+
+  it("has an empty head and tail when the file is only a list", () => {
+    const { source } = parseMapFile("- a\n- b\n");
+
+    expect(source.head).toBe("");
+    expect(source.tail).toBe("");
+  });
+
+  it("does not turn outside text into nodes", () => {
+    const { map } = parseMapFile("Intro\n\n- a\n\nOutro\n");
+
+    expect([...map.nodes.values()].map((node) => node.text)).toEqual(["a"]);
+  });
+});
+
+describe("parseMapFile continuation lines led by a Unicode space", () => {
+  const unicodeSpaces = { "U+00A0": "\u00A0", "U+3000": "\u3000", "U+2003": "\u2003", "U+202F": "\u202F", "U+FEFF": "\uFEFF" };
+  const indents = { "spaces": "    ", "a tab": "\t" };
+  const cases = Object.entries(unicodeSpaces).flatMap(([spaceName, space]) =>
+    Object.entries(indents).map(([indentName, indent]) => ({ spaceName, space, indentName, indent })),
+  );
+
+  it.each(cases)("keeps $spaceName after $indentName indent in the item text and keeps the next item", ({ space, indent }) => {
+    const { map } = parseMapFile(`- a\n${indent}${space}x\n- b\n`);
+
+    expect(outline(map)).toEqual([`0:a\n${space}x`, "0:b"]);
+  });
+
+  it.each(cases)("round trips $spaceName after $indentName indent byte for byte", ({ space, indent }) => {
+    const text = `- a\n${indent}${space}x\n- b\n`;
+    const { map, source } = parseMapFile(text);
+
+    expect(serializeMapFile(map, source)).toBe(text);
+  });
+
+  it("keeps a leading Unicode space when the continuation indents are mixed", () => {
+    expect(parseOutline("- a\n\t\u3000x\n y\n")).toEqual(["0:a\n\u3000x\ny"]);
+  });
+
+  it("keeps a leading Unicode space after a shared partial indent", () => {
+    expect(parseOutline("- a\n  \u3000x\n y\n")).toEqual(["0:a\n \u3000x\ny"]);
+  });
+});
+
+describe("parseMapFile mixed indentation", () => {
+  it("parses a file mixing tabs, two spaces and four spaces by nesting depth", () => {
+    expect(parseOutline("- a\n\t- b\n    - c\n  - d\n")).toEqual(["0:a", "1:b", "1:c", "1:d"]);
+  });
+
+  it("parses multi-line files with tabs, two spaces and four spaces into the same tree", () => {
+    const tabs = parseOutline("- a\n\t- b\n\t  more\n\t- c\n");
+    const two = parseOutline("- a\n  - b\n    more\n  - c\n");
+    const four = parseOutline("- a\n    - b\n      more\n    - c\n");
+
+    expect(tabs).toEqual(["0:a", "1:b\nmore", "1:c"]);
+    expect(two).toEqual(tabs);
+    expect(four).toEqual(tabs);
+  });
+
+  it("derives a tab indent unit from the first nested item", () => {
+    expect(parseMapFile("- a\n\t- b\n").source.indentUnit).toBe("\t");
+  });
+
+  it("derives a two-space indent unit from the first nested item", () => {
+    expect(parseMapFile("- a\n  - b\n").source.indentUnit).toBe("  ");
+  });
+
+  it("derives a four-space indent unit from the first nested item", () => {
+    expect(parseMapFile("- a\n    - b\n").source.indentUnit).toBe("    ");
+  });
+
+  it("uses the first nested item for the indent unit even when later items differ", () => {
+    expect(parseMapFile("- a\n  - b\n\t\t- c\n").source.indentUnit).toBe("  ");
+  });
+
+  it("uses a tab as the indent unit when the file has no nested items", () => {
+    expect(parseMapFile("- a\n- b\n").source.indentUnit).toBe("\t");
   });
 });

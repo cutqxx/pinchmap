@@ -1,7 +1,9 @@
 import { buildMindMap, generateNodeId } from "../model";
 import type { MindMap, NodeEntry, NodeId } from "../model";
-import { countFrontmatterLines } from "./frontmatter";
-import { splitLines } from "./lines";
+import { splitLines, stripLineEnding } from "./lines";
+import { LIST_LINE, findListRegion, groupIntoItemBlocks, isBlankLine } from "./listRegion";
+import type { ItemBlock } from "./listRegion";
+import { DEFAULT_INDENT_UNIT, deriveContinuationIndent, deriveIndentUnit, unescapeBulletLikeLine } from "./sourceLayout";
 import type { SourceItem, SourceLayout } from "./sourceLayout";
 import { TRAILING_ID } from "./trailingId";
 
@@ -11,9 +13,12 @@ export interface ParsedMapFile {
 }
 
 interface ParsedListLine {
-  readonly rawLine: string;
+  readonly rawLines: readonly string[];
   readonly prefix: string;
   readonly lineEnding: string;
+  readonly finalLineEnding: string;
+  readonly continuationIndent: string;
+  readonly trailingBlankLines: readonly string[];
   readonly indentWidth: number;
   readonly text: string;
   readonly explicitId: string | null;
@@ -29,14 +34,12 @@ interface Placement {
   readonly depth: number;
 }
 
-const LIST_LINE = /^([ \t]*[-*+][ \t]+)([^\r\n]*?)(\r?\n)?$/;
 const TAB_WIDTH = 4;
 
 export function parseMapFile(text: string, random: () => number = Math.random): ParsedMapFile {
   const lines = splitLines(text);
-  const listStart = findListStart(lines);
-  const listEnd = findListEnd(lines, listStart);
-  const listLines = lines.slice(listStart, listEnd).map(parseListLine);
+  const { start: listStart, end: listEnd } = findListRegion(lines);
+  const listLines = groupIntoItemBlocks(lines.slice(listStart, listEnd)).map(parseListLine);
   const ids = assignIds(listLines, random);
   const placements = resolvePlacements(listLines);
 
@@ -58,40 +61,51 @@ export function parseMapFile(text: string, random: () => number = Math.random): 
     source: {
       head: lines.slice(0, listStart).join(""),
       tail: lines.slice(listEnd).join(""),
+      indentUnit: deriveIndentUnitFromItems(listLines, placements),
       items,
     },
   };
 }
 
-function isListLine(line: string): boolean {
-  return LIST_LINE.test(line);
-}
-
-function findListStart(lines: readonly string[]): number {
-  const firstLineAfterFrontmatter = countFrontmatterLines(lines);
-  const start = lines.findIndex((line, index) => index >= firstLineAfterFrontmatter && isListLine(line));
-  return start === -1 ? lines.length : start;
-}
-
-function findListEnd(lines: readonly string[], listStart: number): number {
-  let end = listStart;
-  while (end < lines.length && isListLine(at(lines, end))) {
-    end++;
-  }
-  return end;
-}
-
-function parseListLine(rawLine: string): ParsedListLine {
-  const [, prefix = "", content = "", lineEnding = ""] = LIST_LINE.exec(rawLine) ?? [];
+function parseListLine(block: ItemBlock): ParsedListLine {
+  const [, prefix = "", content = "", lineEnding = ""] = LIST_LINE.exec(block.firstLine) ?? [];
   const idMatch = TRAILING_ID.exec(content);
+  const continuationIndent = detectContinuationIndent(block.continuationLines, prefix);
+  const firstLineText = idMatch === null ? content : content.slice(0, idMatch.index).trimEnd();
+  const continuationText = block.continuationLines.map((line) => stripContinuationIndent(line, continuationIndent));
   return {
-    rawLine,
+    rawLines: [block.firstLine, ...block.continuationLines, ...block.trailingBlankLines],
     prefix,
     lineEnding,
+    finalLineEnding: lastLineEnding([block.firstLine, ...block.continuationLines]),
+    continuationIndent,
+    trailingBlankLines: block.trailingBlankLines,
     indentWidth: measureIndent(prefix),
-    text: idMatch === null ? content : content.slice(0, idMatch.index).trimEnd(),
+    text: [firstLineText, ...continuationText].join("\n"),
     explicitId: idMatch?.[1] ?? null,
   };
+}
+
+function detectContinuationIndent(continuationLines: readonly string[], prefix: string): string {
+  const indents = continuationLines.filter((line) => !isBlankLine(line)).map(leadingWhitespace);
+  const shallowest = indents.reduce((best, indent) => (indent.length < best.length ? indent : best), indents[0] ?? "");
+  const isSharedByAll = indents.every((indent) => indent.startsWith(shallowest));
+  return indents.length > 0 && isSharedByAll ? shallowest : deriveContinuationIndent(prefix);
+}
+
+function leadingWhitespace(line: string): string {
+  return /^[ \t]*/.exec(line)?.[0] ?? "";
+}
+
+function stripContinuationIndent(line: string, continuationIndent: string): string {
+  if (isBlankLine(line)) return "";
+  const content = stripLineEnding(line);
+  const stripped = content.startsWith(continuationIndent) ? content.slice(continuationIndent.length) : content.replace(/^[ \t]+/, "");
+  return unescapeBulletLikeLine(stripped);
+}
+
+function lastLineEnding(textLines: readonly string[]): string {
+  return /\r?\n$/.exec(textLines[textLines.length - 1] ?? "")?.[0] ?? "";
 }
 
 function measureIndent(prefix: string): number {
@@ -129,15 +143,26 @@ function resolvePlacements(lines: readonly ParsedListLine[]): Placement[] {
   });
 }
 
+function deriveIndentUnitFromItems(lines: readonly ParsedListLine[], placements: readonly Placement[]): string {
+  const childIndex = placements.findIndex((placement) => placement.parentIndex !== null);
+  const parentIndex = placements[childIndex]?.parentIndex;
+  const child = lines[childIndex];
+  const parent = parentIndex === undefined || parentIndex === null ? undefined : lines[parentIndex];
+  return child === undefined || parent === undefined ? DEFAULT_INDENT_UNIT : deriveIndentUnit(parent.prefix, child.prefix);
+}
+
 function parentIdOf(placement: Placement, ids: readonly AssignedId[]): NodeId | null {
   return placement.parentIndex === null ? null : at(ids, placement.parentIndex).id;
 }
 
 function toSourceItem(line: ParsedListLine, depth: number, hasWrittenId: boolean): SourceItem {
   return {
-    rawLines: [line.rawLine],
+    rawLines: line.rawLines,
     prefix: line.prefix,
     lineEnding: line.lineEnding,
+    finalLineEnding: line.finalLineEnding,
+    continuationIndent: line.continuationIndent,
+    trailingBlankLines: line.trailingBlankLines,
     text: line.text,
     depth,
     hasWrittenId,

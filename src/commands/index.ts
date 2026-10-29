@@ -6,3 +6,5 @@ export type { AddSiblingArgs } from "./addSibling";
 export { addSibling } from "./addSibling";
 export type { DeleteBranchArgs } from "./deleteBranch";
 export { deleteBranch } from "./deleteBranch";
+export type { AddRootArgs } from "./addRoot";
+export { addRoot } from "./addRoot";

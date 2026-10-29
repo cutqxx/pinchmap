@@ -14,7 +14,7 @@ class FakeResizeObserver {
 
 let container: HTMLElement;
 let editor: MapEditor;
-let host: { onMapChanged: Mock<() => void>; onTextEditEnded: Mock<() => void>; notify: Mock<(message: string) => void> };
+let host: { onMapChanged: Mock<() => void>; onTextEditEnded: Mock<() => void>; showMenu: Mock<() => void>; notify: Mock<(message: string) => void> };
 let pendingFrames: (() => void)[];
 
 const SAMPLE = buildMindMap([
@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
   container = document.createElement("div");
   document.body.appendChild(container);
-  host = { onMapChanged: vi.fn(), onTextEditEnded: vi.fn(), notify: vi.fn() };
+  host = { onMapChanged: vi.fn(), onTextEditEnded: vi.fn(), showMenu: vi.fn(), notify: vi.fn() };
   pendingFrames = [];
   editor = new MapEditor({ container, host, requestFrame: (callback) => pendingFrames.push(callback) });
   canvas().setPointerCapture = vi.fn();

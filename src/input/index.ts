@@ -1,5 +1,6 @@
-export { GestureRecognizer, DEFAULT_GESTURE_CONFIG } from "./gestureRecognizer";
+export { GestureRecognizer, DEFAULT_GESTURE_CONFIG, DEFAULT_LONG_PRESS_MS } from "./gestureRecognizer";
 export type {
+  ContextMenuSample,
   GestureConfig,
   HitTarget,
   Intent,
@@ -15,3 +16,4 @@ export { attachNativeGestureGuard } from "./domNativeGestureGuard";
 export type { KeyChord, KeyMode } from "./keymap";
 export { keyToIntent } from "./keymap";
 export { attachKeySource } from "./domKeySource";
+export { attachContextMenuSource } from "./domContextMenuSource";

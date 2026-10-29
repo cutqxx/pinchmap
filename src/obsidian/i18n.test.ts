@@ -52,3 +52,18 @@ describe("t mapActionFailed", () => {
     expect(t("mapActionFailed", "en")).toBe("Pinchmap: the action failed. See the developer console for details.");
   });
 });
+
+describe("t empty-space menu and long press setting", () => {
+  it.each([
+    ["addNode", "Добавить ноду", "Add node"],
+    ["longPressSettingName", "Длительность долгого нажатия", "Long press duration"],
+    [
+      "longPressSettingDescription",
+      "Сколько секунд держать палец на пустом месте, чтобы открыть меню. Допустимо от 0,2 до 2,0.",
+      "Seconds to hold on empty space to open the menu. Allowed range: 0.2 to 2.0.",
+    ],
+  ] as const)("returns the %s label in ru and en", (key, ru, en) => {
+    expect(t(key, "ru")).toBe(ru);
+    expect(t(key, "en")).toBe(en);
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildMindMap, getNode } from ".";
 import type { MindMap } from ".";
-import { withNewSibling, withoutBranch } from "./branchEdits";
+import { withNewRoot, withNewSibling, withoutBranch } from "./branchEdits";
 
 const map = buildMindMap([
   { id: "r1", text: "R1", parentId: null },
@@ -52,6 +52,46 @@ describe("withNewSibling", () => {
     expect(map.rootIds).toEqual(rootIdsBefore);
     expect(getNode(map, "r1").childIds).toEqual(["c1", "c2"]);
     expect(map.nodes.size).toBe(6);
+  });
+});
+
+describe("withNewRoot", () => {
+  it("appends the new node last in the root list with no parent", () => {
+    const updated = withNewRoot(map, { id: "n", text: "N" });
+
+    expect(updated.rootIds).toEqual(["r1", "r2", "n"]);
+    expect(getNode(updated, "n")).toMatchObject({ parentId: null, childIds: [], text: "N" });
+  });
+
+  it("keeps parent and child links consistent", () => {
+    const updated = withNewRoot(map, { id: "n", text: "N" });
+
+    expectConsistent(updated);
+    expect(updated.nodes.size).toBe(map.nodes.size + 1);
+  });
+
+  it("keeps the state of the entry on the new node", () => {
+    const updated = withNewRoot(map, { id: "n", text: "N", state: { x: 4, y: 5 } });
+
+    expect(getNode(updated, "n").state).toEqual({ x: 4, y: 5 });
+  });
+
+  it("leaves no state on the new node when the entry has none", () => {
+    expect(getNode(withNewRoot(map, { id: "n", text: "N" }), "n").state).toBeUndefined();
+  });
+
+  it("creates the first root of an empty map", () => {
+    const updated = withNewRoot({ rootIds: [], nodes: new Map() }, { id: "n", text: "" });
+
+    expect(updated.rootIds).toEqual(["n"]);
+  });
+
+  it("does not touch the existing nodes or mutate the input map", () => {
+    const updated = withNewRoot(map, { id: "n", text: "N" });
+
+    expect(map.rootIds).toEqual(["r1", "r2"]);
+    expect(map.nodes.size).toBe(6);
+    for (const [id, node] of map.nodes) expect(getNode(updated, id)).toBe(node);
   });
 });
 

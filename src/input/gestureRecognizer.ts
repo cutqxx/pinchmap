@@ -1,3 +1,4 @@
+import { LongPressTimer } from "./longPressTimer";
 import { advancePinch, involvesPointer, startPinch } from "./pinch";
 import type { PinchState, ScreenPoint } from "./pinch";
 import { wheelToIntent } from "./wheelIntent";
@@ -31,7 +32,9 @@ export interface WheelSample {
 
 export type Intent =
   | { readonly type: "tap"; readonly target: HitTarget }
-  | { readonly type: "doubleTap"; readonly target: HitTarget }
+  | { readonly type: "doubleTap"; readonly target: HitTarget; readonly point: ScreenPoint }
+  | { readonly type: "longPress"; readonly target: HitTarget; readonly point: ScreenPoint }
+  | { readonly type: "contextMenu"; readonly target: HitTarget; readonly point: ScreenPoint }
   | { readonly type: "pan"; readonly dx: number; readonly dy: number }
   | {
       readonly type: "pinch";
@@ -52,7 +55,16 @@ export interface GestureConfig {
   readonly dragThresholdPx: number;
   readonly doubleTapIntervalMs: number;
   readonly doubleTapDistancePx: number;
+  readonly longPressMs?: number;
 }
+
+export interface ContextMenuSample {
+  readonly x: number;
+  readonly y: number;
+  readonly target: HitTarget;
+}
+
+export const DEFAULT_LONG_PRESS_MS = 500;
 
 export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
   dragThresholdPx: 8,
@@ -95,8 +107,15 @@ export class GestureRecognizer {
   private isSpaceHeld = false;
   private readonly activePointerIds = new Set<number>();
   private readonly touchPoints = new Map<number, ScreenPoint>();
+  private readonly longPressTimer = new LongPressTimer();
+  private longPressMs: number;
 
-  constructor(private readonly config: GestureConfig = DEFAULT_GESTURE_CONFIG) {}
+  constructor(
+    private readonly config: GestureConfig = DEFAULT_GESTURE_CONFIG,
+    private readonly emit: (intent: Intent) => void = () => undefined,
+  ) {
+    this.longPressMs = config.longPressMs ?? DEFAULT_LONG_PRESS_MS;
+  }
 
   handle(sample: PointerSample): readonly Intent[] {
     switch (sample.phase) {
@@ -116,8 +135,26 @@ export class GestureRecognizer {
     return intent === null ? [] : [intent];
   }
 
+  handleContextMenu(sample: ContextMenuSample): readonly Intent[] {
+    return [{ type: "contextMenu", target: sample.target, point: { x: sample.x, y: sample.y } }];
+  }
+
+  setLongPressMs(durationMs: number): void {
+    this.longPressMs = durationMs;
+  }
+
   setSpaceHeld(isHeld: boolean): void {
     this.isSpaceHeld = isHeld;
+  }
+
+  dispose(): void {
+    this.longPressTimer.cancel();
+    this.candidate = null;
+    this.lastTap = null;
+    this.panDrag = null;
+    this.pinch = null;
+    this.activePointerIds.clear();
+    this.touchPoints.clear();
   }
 
   private onDown(sample: PointerSample): readonly Intent[] {
@@ -129,6 +166,7 @@ export class GestureRecognizer {
     const isPrimary = sample.kind === "touch" || sample.button === PRIMARY_BUTTON;
     this.candidate = isPrimary ? startCandidate(sample) : null;
     this.panDrag = this.startPanDrag(sample);
+    this.startLongPressIfEligible(sample);
     return staleIntents;
   }
 
@@ -145,6 +183,19 @@ export class GestureRecognizer {
       this.pinch = startPinch(this.touchPoints);
     }
     return wasPanning && this.pinch === null ? [{ type: "gestureEnd" }] : [];
+  }
+
+  private startLongPressIfEligible(sample: PointerSample): void {
+    if (this.candidate === null || sample.kind !== "touch" || sample.target.kind !== "canvas") return;
+    this.longPressTimer.start(this.longPressMs, () => this.fireLongPress(sample));
+  }
+
+  private fireLongPress(sample: PointerSample): void {
+    if (this.candidate?.pointerId !== sample.pointerId) return;
+    this.candidate.isValid = false;
+    this.lastTap = null;
+    this.panDrag = null;
+    this.emit({ type: "longPress", target: sample.target, point: { x: sample.x, y: sample.y } });
   }
 
   private startPanDrag(sample: PointerSample): PanDrag | null {
@@ -170,6 +221,7 @@ export class GestureRecognizer {
   }
 
   private invalidateCandidate(): void {
+    this.longPressTimer.cancel();
     if (this.candidate !== null) {
       this.candidate.isValid = false;
     }
@@ -188,6 +240,7 @@ export class GestureRecognizer {
     const candidate = this.candidate;
     if (candidate === null || candidate.pointerId !== sample.pointerId) return;
     if (distance(candidate, sample) > this.config.dragThresholdPx) {
+      this.longPressTimer.cancel();
       candidate.isValid = false;
     }
   }
@@ -219,6 +272,7 @@ export class GestureRecognizer {
     const gestureEnd = this.finishGestureOf(sample.pointerId);
     const candidate = this.candidate;
     if (candidate === null || candidate.pointerId !== sample.pointerId) return gestureEnd;
+    this.longPressTimer.cancel();
     this.candidate = null;
     if (!candidate.isValid) {
       this.lastTap = null;
@@ -235,6 +289,7 @@ export class GestureRecognizer {
   private cancelPointer(pointerId: number): readonly Intent[] {
     this.forgetPointer(pointerId);
     const gestureEnd = this.finishGestureOf(pointerId);
+    this.longPressTimer.cancel();
     this.candidate = null;
     this.lastTap = null;
     return gestureEnd;
@@ -261,7 +316,7 @@ export class GestureRecognizer {
     const previousTap = this.lastTap;
     if (previousTap !== null && this.isDoubleTap(previousTap, sample)) {
       this.lastTap = null;
-      return { type: "doubleTap", target: candidate.target };
+      return { type: "doubleTap", target: candidate.target, point: { x: sample.x, y: sample.y } };
     }
     this.lastTap = { x: sample.x, y: sample.y, time: sample.time };
     return { type: "tap", target: candidate.target };

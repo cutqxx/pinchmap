@@ -67,7 +67,7 @@ afterEach(() => {
 });
 
 function createEditor(options: { visibleArea?: VisibleAreaSource; doneLabel?: string } = {}): MapEditor {
-  const host = { onMapChanged: vi.fn(), onTextEditEnded: vi.fn(), notify: vi.fn() };
+  const host = { onMapChanged: vi.fn(), onTextEditEnded: vi.fn(), showMenu: vi.fn(), notify: vi.fn() };
   editor = new MapEditor({
     container,
     host,

@@ -22,6 +22,13 @@ export function withNewSibling(map: MindMap, anchorId: NodeId, entry: NewSibling
   return { rootIds: map.rootIds, nodes };
 }
 
+export function withNewRoot(map: MindMap, entry: NewSiblingEntry): MindMap {
+  const nodes = new Map(map.nodes);
+  const { state, ...fields } = entry;
+  nodes.set(entry.id, { ...fields, parentId: null, childIds: [], ...(state === undefined ? {} : { state }) });
+  return { rootIds: [...map.rootIds, entry.id], nodes };
+}
+
 export function withoutBranch(map: MindMap, branchId: NodeId): MindMap {
   const branch = getNode(map, branchId);
   const nodes = new Map(map.nodes);

@@ -4,6 +4,7 @@ import {
   getNode,
   readRootPosition,
   withNewChild,
+  withNewRoot,
   withNewSibling,
   withRootPosition,
   withSide,
@@ -127,6 +128,47 @@ describe("persisting a newly added node", () => {
     const text = serializeMapFile(edited, source);
 
     expect(getNode(parseMapFile(text).map, id).state).toEqual({ side: "left" });
+  });
+});
+
+describe("persisting a root added at a position", () => {
+  const POSITION = { x: 120, y: -45 };
+
+  function addRootAt(text: string) {
+    const { map, source } = parseMapFile(text);
+    const id = freshId(map);
+    const edited = withNewRoot(map, { id, text: "Fresh", state: withRootPosition(undefined, POSITION) });
+    return { id, edited, written: serializeMapFile(edited, source) };
+  }
+
+  it("writes the new root as the last top-level item", () => {
+    const { id, written } = addRootAt(FILE);
+
+    const listLines = written.split("\n").filter((line) => /^- /.test(line));
+    expect(listLines[listLines.length - 1]).toBe(`- Fresh ^${id}`);
+    expect(parseMapFile(written).map.rootIds).toEqual(["a1b2c3", "m3n4o5", id]);
+  });
+
+  it("puts the absolute x and y into the JSON block and reads them back", () => {
+    const { id, written } = addRootAt(FILE);
+
+    expect(written).toContain(`"${id}": {"x":120,"y":-45}`);
+    expect(readRootPosition(getNode(parseMapFile(written).map, id).state)).toEqual(POSITION);
+  });
+
+  it("keeps the existing positions", () => {
+    const { written } = addRootAt(FILE);
+
+    expect(written).toContain('"m3n4o5": {"x":500,"y":0}');
+    expect(written).toContain('"d4e5f6": {"x":40,"y":-20}');
+  });
+
+  it("gives an empty map its first root with the position", () => {
+    const { id, written } = addRootAt("---\nmindmap: true\n---\n");
+
+    const reread = parseMapFile(written).map;
+    expect(reread.rootIds).toEqual([id]);
+    expect(readRootPosition(getNode(reread, id).state)).toEqual(POSITION);
   });
 });
 

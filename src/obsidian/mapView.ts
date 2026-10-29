@@ -5,6 +5,7 @@ import { parseMapFile, serializeMapFile } from "../format";
 import type { ParsedMapFile } from "../format";
 import { createDebouncedSave } from "./autosave";
 import { createVisibleAreaSource } from "./visibleArea";
+import { showObsidianMenu } from "./showMenu";
 import { ExternalChangeGate } from "./externalChangeGate";
 import { t } from "./i18n";
 
@@ -32,17 +33,20 @@ export class MapView extends TextFileView {
     new Notice(message);
   };
 
-  constructor(leaf: WorkspaceLeaf) {
+  constructor(leaf: WorkspaceLeaf, longPressSeconds: number) {
     super(leaf);
     this.contentEl.classList.add("pinchmap-view");
     this.editor = new MapEditor({
       container: this.contentEl,
       visibleArea: createVisibleAreaSource(this.contentEl.ownerDocument.defaultView ?? window),
       doneLabel: t("done"),
+      addNodeLabel: t("addNode"),
+      longPressSeconds,
       labels: { addChild: t("addChild"), addSibling: t("addSibling") },
       host: {
         onMapChanged: () => this.autosave.schedule(),
         onTextEditEnded: () => this.externalChanges.resumeAfterTextEdit(),
+        showMenu: showObsidianMenu,
         notify: this.notify,
       },
     });
@@ -74,6 +78,10 @@ export class MapView extends TextFileView {
     } else {
       this.externalChanges.receive(data);
     }
+  }
+
+  setLongPressSeconds(seconds: number): void {
+    this.editor.setLongPressSeconds(seconds);
   }
 
   beginEditingFirstRoot(): void {

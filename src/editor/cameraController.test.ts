@@ -307,6 +307,6 @@ describe("isCameraIntent", () => {
 
   it("rejects tap intents so they reach the editor", () => {
     expect(isCameraIntent({ type: "tap", target: { kind: "canvas" } })).toBe(false);
-    expect(isCameraIntent({ type: "doubleTap", target: { kind: "canvas" } })).toBe(false);
+    expect(isCameraIntent({ type: "doubleTap", target: { kind: "canvas" }, point: { x: 0, y: 0 } })).toBe(false);
   });
 });

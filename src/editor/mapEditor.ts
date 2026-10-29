@@ -1,13 +1,15 @@
 import { addChild, addSibling, deleteBranch, setNodeText } from "../commands";
 import {
   GestureRecognizer,
+  attachContextMenuSource,
   attachNativeGestureGuard,
   attachKeySource,
   attachPointerSource,
   attachSpaceKeySource,
   attachWheelSource,
 } from "../input";
-import type { HitTarget, Intent } from "../input";
+import { DEFAULT_GESTURE_CONFIG } from "../input";
+import type { HitTarget, Intent, ScreenPoint } from "../input";
 import { chooseSideForNewBranch, computeLayout, positionBelowRootTree } from "../layout";
 import type { LayoutResult, Size } from "../layout";
 import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, withSidesResolved } from "../model";
@@ -15,14 +17,19 @@ import type { MindMap, NodeId, RootPosition, Side } from "../model";
 import { MapRenderer } from "../render";
 import type { AddButtonLabels, RenderUi } from "../render";
 import { CameraController, isCameraIntent } from "./cameraController";
+import { EmptySpaceMenu } from "./emptySpaceMenu";
+import type { MenuItem } from "./emptySpaceMenu";
 import { KeyboardAssist } from "./keyboardAssist";
 import { selectionAfterDelete } from "./selection";
 import { beginTextEdit } from "./textEditSession";
 import type { TextEditEnd, TextEditSession } from "./textEditSession";
 import type { VisibleAreaSource } from "./visibleArea";
 
+export type { MenuItem };
+
 export interface MapHost {
   onMapChanged(): void;
+  showMenu(items: readonly MenuItem[], at: ScreenPoint): void;
   onTextEditEnded(): void;
   notify(message: string): void;
 }
@@ -34,6 +41,8 @@ export interface MapEditorOptions {
   readonly labels?: AddButtonLabels;
   readonly visibleArea?: VisibleAreaSource;
   readonly doneLabel?: string;
+  readonly addNodeLabel?: string;
+  readonly longPressSeconds?: number;
 }
 
 interface EditingState {
@@ -48,9 +57,12 @@ interface NewNodeOrigin {
   readonly selectionBeforeCreation: NodeId | null;
 }
 
+const MILLISECONDS_PER_SECOND = 1000;
+
 export class MapEditor {
   private readonly renderer: MapRenderer;
-  private readonly recognizer = new GestureRecognizer();
+  private readonly recognizer: GestureRecognizer;
+  private readonly emptySpaceMenu: EmptySpaceMenu;
   private readonly host: MapHost;
   private readonly requestFrame: (callback: () => void) => void;
   private readonly camera: CameraController;
@@ -72,12 +84,17 @@ export class MapEditor {
     labels,
     visibleArea,
     doneLabel,
+    addNodeLabel,
+    longPressSeconds,
   }: MapEditorOptions) {
     const view = container.ownerDocument.defaultView;
     this.host = host;
+    this.recognizer = new GestureRecognizer(DEFAULT_GESTURE_CONFIG, (intent) => this.handleIntent(intent));
+    if (longPressSeconds !== undefined) this.setLongPressSeconds(longPressSeconds);
     this.requestFrame = requestFrame ?? ((callback) => void view?.requestAnimationFrame(callback));
     this.renderer = new MapRenderer(container, { labels });
     this.camera = new CameraController(this.renderer, this.requestFrame);
+    this.emptySpaceMenu = this.createEmptySpaceMenu(addNodeLabel ?? "Add node");
     this.detachInput = this.attachInput(this.renderer.canvasElement);
     this.resizeObserver = new ResizeObserver(() => this.scheduleFrame());
     this.resizeObserver.observe(container);
@@ -113,6 +130,10 @@ export class MapEditor {
     this.beginEditing(nodeId, null);
   }
 
+  setLongPressSeconds(seconds: number): void {
+    this.recognizer.setLongPressMs(seconds * MILLISECONDS_PER_SECOND);
+  }
+
   isEditingText(): boolean {
     return this.editing !== null;
   }
@@ -124,6 +145,7 @@ export class MapEditor {
   destroy(): void {
     this.commitPendingEdit();
     this.isDestroyed = true;
+    this.recognizer.dispose();
     this.camera.destroy();
     this.resizeObserver.disconnect();
     this.keyboardAssist.destroy();
@@ -131,11 +153,23 @@ export class MapEditor {
     this.renderer.destroy();
   }
 
+  private createEmptySpaceMenu(addNodeLabel: string): EmptySpaceMenu {
+    return new EmptySpaceMenu({
+      canvasElement: this.renderer.canvasElement,
+      addNodeLabel,
+      getCamera: () => this.camera.getCamera(),
+      showMenu: (items, at) => this.host.showMenu(items, at),
+      commitPendingEdit: () => this.commitPendingEdit(),
+      createNode: (command) => this.createNode(command),
+    });
+  }
+
   private attachInput(canvas: HTMLElement): readonly (() => void)[] {
     const dispatch = (intents: readonly Intent[]): void =>
       intents.forEach((intent) => this.handleIntent(intent));
     return [
       attachPointerSource(canvas, (sample) => dispatch(this.recognizer.handle(sample))),
+      attachContextMenuSource(canvas, (sample) => dispatch(this.recognizer.handleContextMenu(sample))),
       attachWheelSource(canvas, (sample) => dispatch(this.recognizer.handleWheel(sample))),
       attachSpaceKeySource(canvas, (isHeld) => this.recognizer.setSpaceHeld(isHeld)),
       attachKeySource(canvas, () => (this.editing === null ? "navigate" : "editing"), (intent) =>
@@ -146,6 +180,7 @@ export class MapEditor {
   }
 
   private handleIntent(intent: Intent): void {
+    if (this.isDestroyed) return;
     if (isCameraIntent(intent)) {
       this.camera.handle(intent);
       return;
@@ -155,7 +190,10 @@ export class MapEditor {
       case "tap":
         return this.handleTap(intent.target);
       case "doubleTap":
-        return this.handleDoubleTap(intent.target);
+        return this.handleDoubleTap(intent.target, intent.point);
+      case "longPress":
+      case "contextMenu":
+        return this.emptySpaceMenu.requestMenu(intent.target, intent.point);
       case "addChild":
         return this.addChildToSelection();
       case "addSibling":
@@ -182,9 +220,10 @@ export class MapEditor {
     }
   }
 
-  private handleDoubleTap(target: HitTarget): void {
+  private handleDoubleTap(target: HitTarget, point: ScreenPoint): void {
     this.handleTap(target);
     if (target.kind === "node") this.beginEditing(target.nodeId, null);
+    if (target.kind === "canvas") this.emptySpaceMenu.addRootAt(point);
   }
 
   private editSelection(): void {

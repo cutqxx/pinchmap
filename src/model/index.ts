@@ -16,4 +16,4 @@ export { isJsonObject } from "./nodeState";
 export type { RootPosition, Side } from "./nodeFields";
 export { readRootPosition, readSide, withRootPosition, withSide } from "./nodeFields";
 export type { NewSiblingEntry } from "./branchEdits";
-export { withNewSibling, withoutBranch } from "./branchEdits";
+export { withNewRoot, withNewSibling, withoutBranch } from "./branchEdits";

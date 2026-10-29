@@ -1,7 +1,6 @@
 import type { HitTarget, PointerSample } from "./gestureRecognizer";
-import { closestElement, isNativeTextInputTarget } from "./domTargets";
+import { hitTargetOf, isNativeTextInputTarget } from "./domTargets";
 
-const HIT_SELECTOR = "[data-pinchmap-hit]";
 const MIDDLE_BUTTON = 1;
 
 const POINTER_EVENTS = [
@@ -56,16 +55,6 @@ function findHitTarget(event: PointerEvent): HitTarget {
   const target = hitTargetOf(event.target);
   if (target.kind !== "add-child" && target.kind !== "add-sibling") return target;
   return nodeUnderPointerOtherThan(event, target.nodeId) ?? target;
-}
-
-function hitTargetOf(eventTarget: EventTarget | null): HitTarget {
-  const hitElement = closestElement(eventTarget, HIT_SELECTOR);
-  const nodeId = hitElement?.getAttribute("data-node-id");
-  const kind = hitElement?.getAttribute("data-pinchmap-hit");
-  if (nodeId && (kind === "node" || kind === "add-child" || kind === "add-sibling")) {
-    return { kind, nodeId };
-  }
-  return { kind: "canvas" };
 }
 
 function nodeUnderPointerOtherThan(event: PointerEvent, ownerNodeId: string): HitTarget | null {

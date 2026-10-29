@@ -169,7 +169,7 @@ describe("GestureRecognizer doubleTap", () => {
 
     expect(intents).toEqual([
       { type: "tap", target: NODE_A },
-      { type: "doubleTap", target: NODE_A },
+      { type: "doubleTap", target: NODE_A, point: { x: 100, y: 100 } },
     ]);
   });
 
@@ -185,7 +185,7 @@ describe("GestureRecognizer doubleTap", () => {
 
     const intents = [...tap(recognizer, { time: 0 }), ...tap(recognizer, { time: 100 })];
 
-    expect(intents[1]).toEqual({ type: "doubleTap", target: CANVAS });
+    expect(intents[1]).toEqual({ type: "doubleTap", target: CANVAS, point: { x: 100, y: 100 } });
   });
 
   it("reports two single taps when the second comes after the interval", () => {
@@ -811,7 +811,7 @@ describe("GestureRecognizer plus button targets", () => {
 
     expect(intents).toEqual([
       { type: "tap", target: ADD_SIBLING },
-      { type: "doubleTap", target: ADD_SIBLING },
+      { type: "doubleTap", target: ADD_SIBLING, point: { x: 100, y: 100 } },
     ]);
   });
 

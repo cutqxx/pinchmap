@@ -5,18 +5,42 @@ import { MapView, MAP_VIEW_TYPE } from "./mapView";
 import { OpenAsMapActions } from "./openAsMapAction";
 import { MapFileOpener } from "./openMapFiles";
 import { reportFailure } from "./reportFailure";
+import { PinchmapSettingTab } from "./settingTab";
+import type { LongPressSettingStore } from "./settingTab";
+import { DEFAULT_SETTINGS, readSettings } from "./settings";
+import type { PinchmapSettings } from "./settings";
 
 const NEW_MAP_ICON = "network";
 
-export default class PinchmapPlugin extends Plugin {
-  onload(): void {
+export default class PinchmapPlugin extends Plugin implements LongPressSettingStore {
+  private pinchmapSettings: PinchmapSettings = DEFAULT_SETTINGS;
+
+  getLongPressSeconds(): number {
+    return this.pinchmapSettings.longPressSeconds;
+  }
+
+  async setLongPressSeconds(seconds: number): Promise<void> {
+    this.pinchmapSettings = { ...this.pinchmapSettings, longPressSeconds: seconds };
+    this.applyLongPressToOpenViews();
+    reportFailure(this.saveData(this.pinchmapSettings));
+  }
+
+  async onload(): Promise<void> {
+    this.pinchmapSettings = readSettings(await this.loadData());
     const opener = new MapFileOpener(this.app);
     const notes = new MapNotes(this.app, opener);
-    this.registerView(MAP_VIEW_TYPE, (leaf) => new MapView(leaf));
+    this.registerView(MAP_VIEW_TYPE, (leaf) => new MapView(leaf, this.pinchmapSettings.longPressSeconds));
     this.register(opener.install());
+    this.addSettingTab(new PinchmapSettingTab(this.app, this, this));
     this.addOpenAsMarkdownCommand(opener);
     this.addNewMapEntryPoints(notes);
     this.addConvertAndOpenAsMapEntryPoints(notes);
+  }
+
+  private applyLongPressToOpenViews(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(MAP_VIEW_TYPE)) {
+      if (leaf.view instanceof MapView) leaf.view.setLongPressSeconds(this.pinchmapSettings.longPressSeconds);
+    }
   }
 
   private addOpenAsMarkdownCommand(opener: MapFileOpener): void {

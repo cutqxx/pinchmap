@@ -1,18 +1,22 @@
-import { getNode } from "../model";
-import type { MindMap, NodeId } from "../model";
+import { getNode, readRootPosition } from "../model";
+import type { MindMap, NodeId, Side } from "../model";
+import { measureBranchHeights } from "./blockHeights";
+import { pickSideForNewBranch, resolveRootSides } from "./branchSides";
+import type { SideHeights } from "./branchSides";
 import type { Point, Size } from "./geometry";
+import { DEFAULT_SPACING } from "./spacing";
+import type { LayoutSpacing } from "./spacing";
+import { placeRootTree } from "./treePlacement";
+import type { PlacementContext } from "./treePlacement";
+
+export { DEFAULT_SPACING };
+export type { LayoutSpacing };
 
 export interface LayoutResult {
   readonly positions: ReadonlyMap<NodeId, Point>;
+  readonly sides: ReadonlyMap<NodeId, Side>;
+  readonly sideHeights: ReadonlyMap<NodeId, SideHeights>;
 }
-
-export interface LayoutSpacing {
-  readonly levelGap: number;
-  readonly siblingGap: number;
-  readonly rootGap: number;
-}
-
-export const DEFAULT_SPACING: LayoutSpacing = { levelGap: 48, siblingGap: 12, rootGap: 48 };
 
 const UNMEASURED_SIZE: Size = { width: 0, height: 0 };
 
@@ -22,51 +26,50 @@ export function computeLayout(
   spacing: LayoutSpacing = DEFAULT_SPACING,
 ): LayoutResult {
   const sizeOf = (id: NodeId): Size => sizes.get(id) ?? UNMEASURED_SIZE;
-  const blockHeights = measureBlockHeights(map, sizeOf, spacing.siblingGap);
-  const positions = new Map<NodeId, Point>();
-
-  const place = (id: NodeId, left: number, top: number): void => {
-    const node = getNode(map, id);
-    const blockHeight = blockHeights.get(id) ?? 0;
-    positions.set(id, { x: left, y: top + (blockHeight - sizeOf(id).height) / 2 });
-    const childrenHeight = stackedHeight(node.childIds, blockHeights, spacing.siblingGap);
-    let childTop = top + (blockHeight - childrenHeight) / 2;
-    for (const childId of node.childIds) {
-      place(childId, left + sizeOf(id).width + spacing.levelGap, childTop);
-      childTop += (blockHeights.get(childId) ?? 0) + spacing.siblingGap;
-    }
-  };
-
-  let rootTop = 0;
+  const blockHeights = measureBranchHeights(map, sizeOf, spacing.siblingGap);
+  const sides = new Map<NodeId, Side>();
+  const sideHeights = new Map<NodeId, SideHeights>();
   for (const rootId of map.rootIds) {
-    place(rootId, 0, rootTop);
-    rootTop += (blockHeights.get(rootId) ?? 0) + spacing.rootGap;
+    const resolved = resolveRootSides(map, rootId, blockHeights, spacing.siblingGap);
+    resolved.sides.forEach((side, id) => sides.set(id, side));
+    sideHeights.set(rootId, resolved.heights);
+    blockHeights.set(rootId, Math.max(sizeOf(rootId).height, resolved.heights.left, resolved.heights.right));
   }
-  return { positions };
+  const positions = new Map<NodeId, Point>();
+  placeRoots({ map, sizeOf, blockHeights, sides, spacing, positions });
+  return { positions, sides, sideHeights };
 }
 
-function measureBlockHeights(
-  map: MindMap,
-  sizeOf: (id: NodeId) => Size,
-  siblingGap: number,
-): Map<NodeId, number> {
-  const blockHeights = new Map<NodeId, number>();
-  const measure = (id: NodeId): void => {
-    const node = getNode(map, id);
-    node.childIds.forEach(measure);
-    const childrenHeight = stackedHeight(node.childIds, blockHeights, siblingGap);
-    blockHeights.set(id, Math.max(sizeOf(id).height, childrenHeight));
-  };
-  map.rootIds.forEach(measure);
-  return blockHeights;
+export function chooseSideForNewBranch(layout: LayoutResult, rootId: NodeId): Side {
+  return pickSideForNewBranch(layout.sideHeights.get(rootId));
 }
 
-function stackedHeight(
-  ids: readonly NodeId[],
-  blockHeights: ReadonlyMap<NodeId, number>,
-  gap: number,
+function placeRoots(context: PlacementContext): void {
+  const { map, spacing } = context;
+  const positionedRoots = map.rootIds.flatMap((rootId) => {
+    const position = readRootPosition(getNode(map, rootId).state);
+    return position === undefined ? [] : [{ rootId, position }];
+  });
+  const rootsWithoutPosition = map.rootIds.filter(
+    (id) => !positionedRoots.some(({ rootId }) => rootId === id),
+  );
+  let nextTop = placePositionedRoots(context, positionedRoots);
+  for (const rootId of rootsWithoutPosition) {
+    placeRootTree(context, rootId, 0, nextTop);
+    nextTop += (context.blockHeights.get(rootId) ?? 0) + spacing.rootGap;
+  }
+}
+
+function placePositionedRoots(
+  context: PlacementContext,
+  roots: readonly { readonly rootId: NodeId; readonly position: { readonly x: number; readonly y: number } }[],
 ): number {
-  if (ids.length === 0) return 0;
-  const total = ids.reduce((sum, id) => sum + (blockHeights.get(id) ?? 0), 0);
-  return total + gap * (ids.length - 1);
+  let bottomEdge = Number.NEGATIVE_INFINITY;
+  for (const { rootId, position } of roots) {
+    const blockHeight = context.blockHeights.get(rootId) ?? 0;
+    const top = position.y + context.sizeOf(rootId).height / 2 - blockHeight / 2;
+    placeRootTree(context, rootId, position.x, top);
+    bottomEdge = Math.max(bottomEdge, top + blockHeight);
+  }
+  return roots.length === 0 ? 0 : bottomEdge + context.spacing.rootGap;
 }

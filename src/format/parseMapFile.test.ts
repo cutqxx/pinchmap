@@ -683,3 +683,38 @@ describe("parseMapFile loaded map identity", () => {
     expect(source.loadedMap).toBe(map);
   });
 });
+
+describe("parseMapFile pending branch sides", () => {
+  function pendingTexts(text: string): string[] {
+    const { map } = parseMapFile(text);
+    return [...map.nodes.values()].filter((node) => node.isSidePending === true).map((node) => node.text);
+  }
+
+  it("marks first-level branches without a written id as side pending", () => {
+    expect(pendingTexts("- root ^r1\n  - added\n  - also added\n")).toEqual(["added", "also added"]);
+  });
+
+  it("does not mark a first-level branch with a written id, even without a record", () => {
+    expect(pendingTexts("- root ^r1\n  - known ^b1\n")).toEqual([]);
+  });
+
+  it("does not mark roots without a written id", () => {
+    expect(pendingTexts("- root\n")).toEqual([]);
+  });
+
+  it("does not mark deeper nodes without a written id", () => {
+    expect(pendingTexts("- root ^r1\n  - known ^b1\n    - deep\n      - deeper\n")).toEqual([]);
+  });
+
+  it("keeps a first-level branch with a written id on the right when the json has no record for it", () => {
+    const { map } = parseMapFile("- root ^r1\n  - known ^b1\n");
+
+    expect(map.nodes.get("b1")?.state).toBeUndefined();
+  });
+
+  it("reads the left side of a branch from the json block", () => {
+    const text = '- root ^r1\n  - l ^b1\n\n%%\n```json\n{\n"version": 1,\n"nodes": {\n"b1": {"side": "left"}\n}\n}\n```\n%%\n';
+
+    expect(parseMapFile(text).map.nodes.get("b1")?.state).toEqual({ side: "left" });
+  });
+});

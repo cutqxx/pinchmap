@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMindMap, getNode, withNodeText } from "../model";
+import { buildMindMap, getNode, withNodeText, withSidesResolved } from "../model";
 import type { MindMap, NodeState } from "../model";
 import { parseMapFile } from "./parseMapFile";
 import { serializeMapFile } from "./serializeMapFile";
@@ -130,7 +130,7 @@ describe("serializeMapFile with duplicated ids", () => {
 
 describe("serializeMapFile with trailing caret-words in text", () => {
   it("keeps the typed text and writes the item's own id when an item without id is edited to end in a caret-word", () => {
-    const { map, source } = parseMapFile("- Plain\n", () => 0.5);
+    const { map, source } = parseMapFile("- Plain\n", sequenceRandom());
     const id = [...map.nodes.keys()][0] as string;
 
     const after = serializeMapFile(withNodeText(map, id, "see ^ref"), source);
@@ -753,5 +753,75 @@ describe("serializeMapFile with a corrupt head-only block", () => {
     const parsed = parseMapFile(file);
 
     expect(serializeMapFile(parsed.map, parsed.source)).toBe(file);
+  });
+});
+
+function sequenceRandom(): () => number {
+  let counter = 0;
+  return () => {
+    counter += 1;
+    return (counter % 36) / 36;
+  };
+}
+
+describe("serializeMapFile with branch sides", () => {
+  const leftJson = (fields: string): string =>
+    `\n%%\n\`\`\`json\n{\n"version": 1,\n"nodes": {\n${fields}\n},\n"style": {}\n}\n\`\`\`\n%%\n`;
+
+  function settleAndSerialize(fileText: string): string {
+    const { map, source } = parseMapFile(fileText, sequenceRandom());
+    const first = [...map.nodes.values()][0];
+    if (first === undefined) throw new Error("empty map");
+    const sides = new Map<string, "left" | "right">();
+    for (const node of map.nodes.values()) {
+      if (node.isSidePending === true) sides.set(node.id, node.text.startsWith("L") ? "left" : "right");
+    }
+    const settled = withSidesResolved(map, sides);
+    return serializeMapFile(withNodeText(settled, first.id, `${first.text}!`), source);
+  }
+
+  it("writes side left for a new left branch and nothing for a new right branch", () => {
+    const after = settleAndSerialize("- root ^r1\n  - Left one\n  - Right one\n");
+
+    const [, leftId, rightId] = [...parseMapFile(after).map.nodes.keys()];
+    const reloaded = parseMapFile(after).map;
+    expect(reloaded.nodes.get(leftId ?? "")?.state).toEqual({ side: "left" });
+    expect(reloaded.nodes.get(rightId ?? "")?.state).toBeUndefined();
+    expect(after).toContain('"side":"left"');
+    expect(after.match(/"side"/g)).toHaveLength(1);
+  });
+
+  it("preserves unknown state fields of a left branch when it is written back", () => {
+    const file = `- root ^r1\n  - Left ^b1\n  - tail\n${leftJson('"b1": {"side": "left", "future": {"a": [1, 2]}}')}`;
+
+    const after = settleAndSerialize(file);
+
+    expect(parseMapFile(after).map.nodes.get("b1")?.state).toEqual({ side: "left", future: { a: [1, 2] } });
+  });
+
+  it("keeps the saved side of branches with ids when a pending branch is settled", () => {
+    const file = `- root ^r1\n  - Left ^b1\n  - Right ^b2\n  - Rnew\n${leftJson('"b1": {"side": "left"}')}`;
+
+    const reloaded = parseMapFile(settleAndSerialize(file)).map;
+
+    expect(reloaded.nodes.get("b1")?.state).toEqual({ side: "left" });
+    expect(reloaded.nodes.get("b2")?.state).toBeUndefined();
+  });
+
+  it("writes the decided side only once the branch is settled, so reopening does not re-decide it", () => {
+    const after = settleAndSerialize("- root ^r1\n  - Left one\n");
+
+    const reloaded = parseMapFile(after).map;
+    const branch = [...reloaded.nodes.values()].find((node) => node.text === "Left one");
+    expect(branch?.isSidePending).toBeUndefined();
+    expect(branch?.state).toEqual({ side: "left" });
+  });
+
+  it("leaves an opened file with pending branches byte-identical when nothing is edited", () => {
+    const file = "---\nmindmap: true\n---\n- root ^r1\n  - added\n  - added too\n";
+
+    const { map, source } = parseMapFile(file, sequenceRandom());
+
+    expect(serializeMapFile(map, source)).toBe(file);
   });
 });

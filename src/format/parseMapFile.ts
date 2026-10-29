@@ -55,6 +55,7 @@ export function parseMapFile(text: string, random: () => number = Math.random): 
       text: line.text,
       parentId: parentIdOf(at(placements, index), ids),
       ...stateEntry(states.get(at(ids, index).id)),
+      ...sidePendingEntry(at(ids, index), at(placements, index)),
     }),
   );
   const items = new Map<NodeId, SourceItem>();
@@ -88,6 +89,11 @@ function readServiceJson(head: string, tail: string, lineEnding: string): ReadJs
 
 function stateEntry(state: NodeState | undefined): { state?: NodeState } {
   return state === undefined ? {} : { state };
+}
+
+function sidePendingEntry(id: AssignedId, placement: Placement): { isSidePending?: true } {
+  const isUnwrittenFirstLevelBranch = placement.depth === 1 && !id.isWritten;
+  return isUnwrittenFirstLevelBranch ? { isSidePending: true } : {};
 }
 
 function parseListLine(block: ItemBlock): ParsedListLine {

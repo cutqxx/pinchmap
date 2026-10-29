@@ -83,3 +83,10 @@
   user-select: text;
   -webkit-user-select: text;
 }
+
+.pinchmap-node.is-root {
+  border-width: 2px;
+  border-color: var(--interactive-accent);
+  font-size: calc(var(--font-text-size, 16px) * 1.25);
+  font-weight: var(--font-semibold, 600);
+}

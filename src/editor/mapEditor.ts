@@ -2,7 +2,8 @@ import { setNodeText } from "../commands";
 import { GestureRecognizer, attachPointerSource } from "../input";
 import type { HitTarget, Intent } from "../input";
 import { computeLayout } from "../layout";
-import { EMPTY_MIND_MAP, getNode } from "../model";
+import type { LayoutResult } from "../layout";
+import { EMPTY_MIND_MAP, getNode, withSidesResolved } from "../model";
 import type { MindMap, NodeId } from "../model";
 import { MapRenderer } from "../render";
 import type { RenderUi } from "../render";
@@ -35,6 +36,7 @@ export class MapEditor {
   private readonly detachPointerSource: () => void;
   private readonly resizeObserver: ResizeObserver;
   private map: MindMap = EMPTY_MIND_MAP;
+  private layout: LayoutResult | null = null;
   private editing: EditingState | null = null;
   private isFramePending = false;
   private isDestroyed = false;
@@ -59,6 +61,7 @@ export class MapEditor {
     this.editing?.session.cancel();
     this.editing = null;
     this.map = map;
+    this.layout = null;
     this.scheduleFrame();
   }
 
@@ -112,13 +115,18 @@ export class MapEditor {
 
   private finishEditing(nodeId: NodeId, finalText: string): void {
     this.editing = null;
-    const updatedMap = setNodeText(this.map, { nodeId, text: finalText });
-    if (updatedMap !== this.map) {
+    const settledMap = this.mapWithSettledSides();
+    const updatedMap = setNodeText(settledMap, { nodeId, text: finalText });
+    if (updatedMap !== settledMap) {
       this.map = updatedMap;
       this.host.onMapChanged();
     }
     this.scheduleFrame();
     this.host.onTextEditEnded();
+  }
+
+  private mapWithSettledSides(): MindMap {
+    return this.layout === null ? this.map : withSidesResolved(this.map, this.layout.sides);
   }
 
   private scheduleFrame(): void {
@@ -133,7 +141,8 @@ export class MapEditor {
   private renderFrame(): void {
     this.renderer.syncContent(this.map, this.currentRenderUi());
     const sizes = this.renderer.measure();
-    this.renderer.place(this.map, computeLayout(this.map, sizes));
+    this.layout = computeLayout(this.map, sizes);
+    this.renderer.place(this.map, this.layout);
   }
 
   private currentRenderUi(): RenderUi {

@@ -5,7 +5,9 @@ import {
   generateNodeId,
   getNode,
   listNodesInDocumentOrder,
+  withNewChild,
   withNodeText,
+  withSidesResolved,
 } from ".";
 import type { NodeEntry } from ".";
 
@@ -144,5 +146,117 @@ describe("generateNodeId", () => {
     const id = generateNodeId(new Set(["aaaaaa"]), random);
 
     expect(id).toBe("ssssss");
+  });
+});
+
+describe("withSidesResolved", () => {
+  const pendingMap = buildMindMap([
+    { id: "r", text: "Root", parentId: null, state: { x: 1, y: 2 } },
+    { id: "a", text: "Pending A", parentId: "r", isSidePending: true, state: { future: [1, "two"], color: "red" } },
+    { id: "b", text: "Pending B", parentId: "r", isSidePending: true },
+    { id: "c", text: "Decided", parentId: "r", state: { side: "left" } },
+    { id: "g", text: "Grandchild", parentId: "a" },
+  ]);
+
+  it("returns the very same map when no branch is pending", () => {
+    const map = buildMindMap(SAMPLE_ENTRIES);
+
+    expect(withSidesResolved(map, new Map([["c1", "left"]]))).toBe(map);
+  });
+
+  it("writes left into the state of a pending branch placed on the left", () => {
+    const settled = withSidesResolved(pendingMap, new Map([["a", "left"], ["b", "right"]]));
+
+    expect(getNode(settled, "a").state).toMatchObject({ side: "left" });
+  });
+
+  it("writes no state for a pending branch placed on the right", () => {
+    const settled = withSidesResolved(pendingMap, new Map([["a", "left"], ["b", "right"]]));
+
+    expect(getNode(settled, "b").state).toBeUndefined();
+  });
+
+  it("treats a pending branch missing from the sides as right", () => {
+    const settled = withSidesResolved(pendingMap, new Map());
+
+    expect(getNode(settled, "a").state).toEqual({ future: [1, "two"], color: "red" });
+  });
+
+  it("clears the pending flag on settled branches", () => {
+    const settled = withSidesResolved(pendingMap, new Map([["a", "left"], ["b", "left"]]));
+
+    expect(getNode(settled, "a").isSidePending).toBeUndefined();
+    expect(getNode(settled, "b").isSidePending).toBeUndefined();
+  });
+
+  it("keeps text, parent, children and every other state key of a settled branch", () => {
+    const settled = withSidesResolved(pendingMap, new Map([["a", "left"]]));
+
+    const branch = getNode(settled, "a");
+    expect(branch.text).toBe("Pending A");
+    expect(branch.parentId).toBe("r");
+    expect(branch.childIds).toEqual(["g"]);
+    expect(branch.state).toEqual({ future: [1, "two"], color: "red", side: "left" });
+  });
+
+  it("leaves decided branches, roots and descendants as they were", () => {
+    const settled = withSidesResolved(pendingMap, new Map([["a", "left"]]));
+
+    for (const id of ["r", "c", "g"]) {
+      expect(getNode(settled, id)).toBe(getNode(pendingMap, id));
+    }
+    expect(settled.rootIds).toBe(pendingMap.rootIds);
+  });
+
+  it("does not mutate the input map", () => {
+    withSidesResolved(pendingMap, new Map([["a", "left"]]));
+
+    expect(getNode(pendingMap, "a").isSidePending).toBe(true);
+    expect(getNode(pendingMap, "a").state).toEqual({ future: [1, "two"], color: "red" });
+  });
+});
+
+describe("buildMindMap pending side flag", () => {
+  it("keeps the pending flag on a node", () => {
+    const map = buildMindMap([
+      { id: "r", text: "", parentId: null },
+      { id: "a", text: "", parentId: "r", isSidePending: true },
+    ]);
+
+    expect(getNode(map, "a").isSidePending).toBe(true);
+    expect(getNode(map, "r").isSidePending).toBeUndefined();
+  });
+});
+
+describe("withNewChild", () => {
+  const map = buildMindMap(SAMPLE_ENTRIES);
+
+  it("appends the new node last among the children of its parent", () => {
+    const updated = withNewChild(map, { id: "c3", text: "New", parentId: "r1" });
+
+    expect(getNode(updated, "r1").childIds).toEqual(["c1", "c2", "c3"]);
+  });
+
+  it("creates a childless node with the given text, parent and state", () => {
+    const updated = withNewChild(map, { id: "c3", text: "New", parentId: "r1", state: { side: "left" } });
+
+    expect(getNode(updated, "c3")).toEqual({
+      id: "c3",
+      text: "New",
+      parentId: "r1",
+      childIds: [],
+      state: { side: "left" },
+    });
+  });
+
+  it("does not mutate the input map", () => {
+    withNewChild(map, { id: "c3", text: "New", parentId: "r1" });
+
+    expect(getNode(map, "r1").childIds).toEqual(["c1", "c2"]);
+    expect(map.nodes.has("c3")).toBe(false);
+  });
+
+  it("fails for an unknown parent", () => {
+    expect(() => withNewChild(map, { id: "x", text: "", parentId: "nope" })).toThrow("Node not found: nope");
   });
 });

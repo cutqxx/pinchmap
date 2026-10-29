@@ -92,6 +92,7 @@ export class MapRenderer {
       this.dirtyIds.add(node.id);
     }
     element.classList.toggle("is-editing", isEditing);
+    element.classList.toggle("is-root", node.parentId === null);
   }
 
   private createNodeElement(id: NodeId): HTMLElement {
@@ -127,10 +128,18 @@ export class MapRenderer {
   private placeEdge(node: MapNode, layout: LayoutResult): void {
     const path = this.edgeElements.get(node.id);
     if (path === undefined || node.parentId === null) return;
-    const start = this.edgeAnchor(node.parentId, layout, 1);
-    const end = this.edgeAnchor(node.id, layout, 0);
+    const isLeftOfParent = this.isLeftOfParent(node.id, node.parentId, layout);
+    const start = this.edgeAnchor(node.parentId, layout, isLeftOfParent ? 0 : 1);
+    const end = this.edgeAnchor(node.id, layout, isLeftOfParent ? 1 : 0);
     if (start === null || end === null) return;
     path.setAttribute("d", edgePath(start, end));
+  }
+
+  private isLeftOfParent(id: NodeId, parentId: NodeId, layout: LayoutResult): boolean {
+    const position = layout.positions.get(id);
+    const parentPosition = layout.positions.get(parentId);
+    if (position === undefined || parentPosition === undefined) return false;
+    return position.x < parentPosition.x;
   }
 
   private edgeAnchor(id: NodeId, layout: LayoutResult, widthFraction: 0 | 1): Point | null {

@@ -6,8 +6,12 @@ export {
   buildMindMap,
   getNode,
   withNodeText,
+  withNewChild,
+  withSidesResolved,
   listNodesInDocumentOrder,
 } from "./mindMap";
 export { canonicalNodeText } from "./nodeText";
 export type { JsonObject, JsonValue, NodeState } from "./nodeState";
 export { isJsonObject } from "./nodeState";
+export type { RootPosition, Side } from "./nodeFields";
+export { readRootPosition, readSide, withSide } from "./nodeFields";

@@ -1,0 +1,203 @@
+---
+mindmap: true
+---
+- H1 test map: 200 nodes ^aaaaaa
+	- Branch 1.0 with a longer title to wrap lines ^aaaaab
+		- Leaf 1 ^aaaaac
+		- Leaf 2 ^aaaaad
+		- Leaf 3 ^aaaaae
+		- Leaf 4 ^aaaaaf
+		- Leaf 5 ^aaaaag
+	- Branch 2.1 with a longer title to wrap lines ^aaaaah
+		- Leaf 1 ^aaaaai
+		- Leaf 2 ^aaaaaj
+		- Leaf 3 ^aaaaak
+		- Leaf 4 ^aaaaal
+		- Leaf 5 ^aaaaam
+	- Branch 3.2 with a longer title to wrap lines ^aaaaan
+		- Leaf 1 ^aaaaao
+		- Leaf 2 ^aaaaap
+		- Leaf 3 ^aaaaaq
+		- Leaf 4 ^aaaaar
+		- Leaf 5 ^aaaaas
+	- Branch 4.3 with a longer title to wrap lines ^aaaaat
+		- Leaf 1 ^aaaaau
+		- Leaf 2 ^aaaaav
+		- Leaf 3 ^aaaaaw
+		- Leaf 4 ^aaaaax
+		- Leaf 5 ^aaaaay
+	- Branch 5.4 with a longer title to wrap lines ^aaaaaz
+		- Leaf 1 ^aaaaa0
+		- Leaf 2 ^aaaaa1
+		- Leaf 3 ^aaaaa2
+		- Leaf 4 ^aaaaa3
+		- Leaf 5 ^aaaaa4
+	- Branch 6.5 with a longer title to wrap lines ^aaaaa5
+		- Leaf 1 ^aaaaa6
+		- Leaf 2 ^aaaaa7
+		- Leaf 3 ^aaaaa8
+		- Leaf 4 ^aaaaa9
+		- Leaf 5 ^aaaaba
+	- Branch 7.6 with a longer title to wrap lines ^aaaabb
+		- Leaf 1 ^aaaabc
+		- Leaf 2 ^aaaabd
+		- Leaf 3 ^aaaabe
+		- Leaf 4 ^aaaabf
+		- Leaf 5 ^aaaabg
+	- Branch 8.7 with a longer title to wrap lines ^aaaabh
+		- Leaf 1 ^aaaabi
+		- Leaf 2 ^aaaabj
+		- Leaf 3 ^aaaabk
+		- Leaf 4 ^aaaabl
+		- Leaf 5 ^aaaabm
+	- Branch 1.8 with a longer title to wrap lines ^aaaabn
+		- Leaf 1 ^aaaabo
+		- Leaf 2 ^aaaabp
+		- Leaf 3 ^aaaabq
+		- Leaf 4 ^aaaabr
+		- Leaf 5 ^aaaabs
+	- Branch 2.9 with a longer title to wrap lines ^aaaabt
+		- Leaf 1 ^aaaabu
+		- Leaf 2 ^aaaabv
+		- Leaf 3 ^aaaabw
+		- Leaf 4 ^aaaabx
+		- Leaf 5 ^aaaaby
+	- Branch 3.10 with a longer title to wrap lines ^aaaabz
+		- Leaf 1 ^aaaab0
+		- Leaf 2 ^aaaab1
+		- Leaf 3 ^aaaab2
+		- Leaf 4 ^aaaab3
+		- Leaf 5 ^aaaab4
+	- Branch 4.11 with a longer title to wrap lines ^aaaab5
+		- Leaf 1 ^aaaab6
+		- Leaf 2 ^aaaab7
+		- Leaf 3 ^aaaab8
+		- Leaf 4 ^aaaab9
+		- Leaf 5 ^aaaaca
+	- Branch 5.12 with a longer title to wrap lines ^aaaacb
+		- Leaf 1 ^aaaacc
+		- Leaf 2 ^aaaacd
+		- Leaf 3 ^aaaace
+		- Leaf 4 ^aaaacf
+		- Leaf 5 ^aaaacg
+	- Branch 6.13 with a longer title to wrap lines ^aaaach
+		- Leaf 1 ^aaaaci
+		- Leaf 2 ^aaaacj
+		- Leaf 3 ^aaaack
+		- Leaf 4 ^aaaacl
+		- Leaf 5 ^aaaacm
+	- Branch 7.14 with a longer title to wrap lines ^aaaacn
+		- Leaf 1 ^aaaaco
+		- Leaf 2 ^aaaacp
+		- Leaf 3 ^aaaacq
+		- Leaf 4 ^aaaacr
+		- Leaf 5 ^aaaacs
+	- Branch 8.15 with a longer title to wrap lines ^aaaact
+		- Leaf 1 ^aaaacu
+		- Leaf 2 ^aaaacv
+		- Leaf 3 ^aaaacw
+		- Leaf 4 ^aaaacx
+		- Leaf 5 ^aaaacy
+	- Branch 1.16 with a longer title to wrap lines ^aaaacz
+		- Leaf 1 ^aaaac0
+		- Leaf 2 ^aaaac1
+		- Leaf 3 ^aaaac2
+		- Leaf 4 ^aaaac3
+		- Leaf 5 ^aaaac4
+	- Branch 2.17 with a longer title to wrap lines ^aaaac5
+		- Leaf 1 ^aaaac6
+		- Leaf 2 ^aaaac7
+		- Leaf 3 ^aaaac8
+		- Leaf 4 ^aaaac9
+		- Leaf 5 ^aaaada
+	- Branch 3.18 with a longer title to wrap lines ^aaaadb
+		- Leaf 1 ^aaaadc
+		- Leaf 2 ^aaaadd
+		- Leaf 3 ^aaaade
+		- Leaf 4 ^aaaadf
+		- Leaf 5 ^aaaadg
+	- Branch 4.19 with a longer title to wrap lines ^aaaadh
+		- Leaf 1 ^aaaadi
+		- Leaf 2 ^aaaadj
+		- Leaf 3 ^aaaadk
+		- Leaf 4 ^aaaadl
+		- Leaf 5 ^aaaadm
+	- Branch 5.20 with a longer title to wrap lines ^aaaadn
+		- Leaf 1 ^aaaado
+		- Leaf 2 ^aaaadp
+		- Leaf 3 ^aaaadq
+		- Leaf 4 ^aaaadr
+		- Leaf 5 ^aaaads
+	- Branch 6.21 with a longer title to wrap lines ^aaaadt
+		- Leaf 1 ^aaaadu
+		- Leaf 2 ^aaaadv
+		- Leaf 3 ^aaaadw
+		- Leaf 4 ^aaaadx
+		- Leaf 5 ^aaaady
+	- Branch 7.22 with a longer title to wrap lines ^aaaadz
+		- Leaf 1 ^aaaad0
+		- Leaf 2 ^aaaad1
+		- Leaf 3 ^aaaad2
+		- Leaf 4 ^aaaad3
+		- Leaf 5 ^aaaad4
+	- Branch 8.23 with a longer title to wrap lines ^aaaad5
+		- Leaf 1 ^aaaad6
+		- Leaf 2 ^aaaad7
+		- Leaf 3 ^aaaad8
+		- Leaf 4 ^aaaad9
+		- Leaf 5 ^aaaaea
+	- Branch 1.24 with a longer title to wrap lines ^aaaaeb
+		- Leaf 1 ^aaaaec
+		- Leaf 2 ^aaaaed
+		- Leaf 3 ^aaaaee
+		- Leaf 4 ^aaaaef
+		- Leaf 5 ^aaaaeg
+	- Branch 2.25 with a longer title to wrap lines ^aaaaeh
+		- Leaf 1 ^aaaaei
+		- Leaf 2 ^aaaaej
+		- Leaf 3 ^aaaaek
+		- Leaf 4 ^aaaael
+		- Leaf 5 ^aaaaem
+	- Branch 3.26 with a longer title to wrap lines ^aaaaen
+		- Leaf 1 ^aaaaeo
+		- Leaf 2 ^aaaaep
+		- Leaf 3 ^aaaaeq
+		- Leaf 4 ^aaaaer
+		- Leaf 5 ^aaaaes
+	- Branch 4.27 with a longer title to wrap lines ^aaaaet
+		- Leaf 1 ^aaaaeu
+		- Leaf 2 ^aaaaev
+		- Leaf 3 ^aaaaew
+		- Leaf 4 ^aaaaex
+		- Leaf 5 ^aaaaey
+	- Branch 5.28 with a longer title to wrap lines ^aaaaez
+		- Leaf 1 ^aaaae0
+		- Leaf 2 ^aaaae1
+		- Leaf 3 ^aaaae2
+		- Leaf 4 ^aaaae3
+		- Leaf 5 ^aaaae4
+	- Branch 6.29 with a longer title to wrap lines ^aaaae5
+		- Leaf 1 ^aaaae6
+		- Leaf 2 ^aaaae7
+		- Leaf 3 ^aaaae8
+		- Leaf 4 ^aaaae9
+		- Leaf 5 ^aaaafa
+	- Branch 7.30 with a longer title to wrap lines ^aaaafb
+		- Leaf 1 ^aaaafc
+		- Leaf 2 ^aaaafd
+		- Leaf 3 ^aaaafe
+		- Leaf 4 ^aaaaff
+		- Leaf 5 ^aaaafg
+	- Branch 8.31 with a longer title to wrap lines ^aaaafh
+		- Leaf 1 ^aaaafi
+		- Leaf 2 ^aaaafj
+		- Leaf 3 ^aaaafk
+		- Leaf 4 ^aaaafl
+		- Leaf 5 ^aaaafm
+	- Branch 1.32 with a longer title to wrap lines ^aaaafn
+		- Leaf 1 ^aaaafo
+		- Leaf 2 ^aaaafp
+		- Leaf 3 ^aaaafq
+		- Leaf 4 ^aaaafr
+		- Leaf 5 ^aaaafs
+	- Branch 2.33 with a longer title to wrap lines ^aaaaft

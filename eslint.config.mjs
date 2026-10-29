@@ -58,6 +58,14 @@ function restrictionsFor(moduleName) {
   };
 }
 
+function restrictionsAllowingFixtures(moduleName) {
+  const restrictions = restrictionsFor(moduleName);
+  return {
+    ...restrictions,
+    patterns: restrictions.patterns.filter((pattern) => !pattern.group.includes("../../*")),
+  };
+}
+
 export default tseslint.config(
   { ignores: ["main.js", "node_modules/**"] },
   js.configs.recommended,
@@ -66,4 +74,8 @@ export default tseslint.config(
     files: [`src/${moduleName}/**/*.ts`],
     rules: { "no-restricted-imports": ["error", restrictionsFor(moduleName)] },
   })),
+  {
+    files: ["src/format/h1FixtureGenerator.test.ts"],
+    rules: { "no-restricted-imports": ["error", restrictionsAllowingFixtures("format")] },
+  },
 );

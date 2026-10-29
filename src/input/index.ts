@@ -5,5 +5,10 @@ export type {
   Intent,
   PointerKind,
   PointerSample,
+  WheelSample,
 } from "./gestureRecognizer";
+export type { ScreenPoint } from "./pinch";
 export { attachPointerSource } from "./domPointerSource";
+export { attachWheelSource } from "./domWheelSource";
+export { attachSpaceKeySource } from "./domSpaceKeySource";
+export { attachNativeGestureGuard } from "./domNativeGestureGuard";

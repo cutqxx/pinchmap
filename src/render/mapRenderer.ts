@@ -1,5 +1,6 @@
 import type { LayoutResult, Point, Size } from "../layout";
 import type { MapNode, MindMap, NodeId } from "../model";
+import type { Camera } from "../viewport";
 import { edgePath } from "./edgePath";
 
 export interface RenderUi {
@@ -7,7 +8,6 @@ export interface RenderUi {
 }
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-const WORLD_OFFSET: Point = { x: 40, y: 40 };
 
 export class MapRenderer {
   readonly canvasElement: HTMLElement;
@@ -25,7 +25,7 @@ export class MapRenderer {
     this.canvasElement.setAttribute("data-pinchmap-hit", "canvas");
     this.worldElement = doc.createElement("div");
     this.worldElement.className = "pinchmap-world";
-    this.worldElement.style.transform = `translate(${WORLD_OFFSET.x}px, ${WORLD_OFFSET.y}px)`;
+    this.canvasElement.tabIndex = 0;
     this.edgesElement = doc.createElementNS(SVG_NAMESPACE, "svg");
     this.edgesElement.setAttribute("class", "pinchmap-edges");
     this.worldElement.appendChild(this.edgesElement);
@@ -35,6 +35,14 @@ export class MapRenderer {
 
   getNodeElement(id: NodeId): HTMLElement | undefined {
     return this.nodeElements.get(id);
+  }
+
+  setCamera(camera: Camera): void {
+    this.worldElement.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
+  }
+
+  setGestureActive(isActive: boolean): void {
+    this.worldElement.style.willChange = isActive ? "transform" : "";
   }
 
   syncContent(map: MindMap, ui: RenderUi): void {

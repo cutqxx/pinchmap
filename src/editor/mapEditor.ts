@@ -1,5 +1,11 @@
 import { setNodeText } from "../commands";
-import { GestureRecognizer, attachPointerSource } from "../input";
+import {
+  GestureRecognizer,
+  attachNativeGestureGuard,
+  attachPointerSource,
+  attachSpaceKeySource,
+  attachWheelSource,
+} from "../input";
 import type { HitTarget, Intent } from "../input";
 import { computeLayout } from "../layout";
 import type { LayoutResult } from "../layout";
@@ -7,6 +13,7 @@ import { EMPTY_MIND_MAP, getNode, withSidesResolved } from "../model";
 import type { MindMap, NodeId } from "../model";
 import { MapRenderer } from "../render";
 import type { RenderUi } from "../render";
+import { CameraController, isCameraIntent } from "./cameraController";
 import { beginTextEdit } from "./textEditSession";
 import type { TextEditSession } from "./textEditSession";
 
@@ -33,7 +40,8 @@ export class MapEditor {
   private readonly recognizer = new GestureRecognizer();
   private readonly host: MapHost;
   private readonly requestFrame: (callback: () => void) => void;
-  private readonly detachPointerSource: () => void;
+  private readonly camera: CameraController;
+  private readonly detachInput: readonly (() => void)[];
   private readonly resizeObserver: ResizeObserver;
   private map: MindMap = EMPTY_MIND_MAP;
   private layout: LayoutResult | null = null;
@@ -46,9 +54,8 @@ export class MapEditor {
     this.host = host;
     this.requestFrame = requestFrame ?? ((callback) => void view?.requestAnimationFrame(callback));
     this.renderer = new MapRenderer(container);
-    this.detachPointerSource = attachPointerSource(this.renderer.canvasElement, (sample) =>
-      this.recognizer.handle(sample).forEach((intent) => this.handleIntent(intent)),
-    );
+    this.camera = new CameraController(this.renderer, this.requestFrame);
+    this.detachInput = this.attachInput(this.renderer.canvasElement);
     this.resizeObserver = new ResizeObserver(() => this.scheduleFrame());
     this.resizeObserver.observe(container);
   }
@@ -76,12 +83,28 @@ export class MapEditor {
   destroy(): void {
     this.commitPendingEdit();
     this.isDestroyed = true;
+    this.camera.destroy();
     this.resizeObserver.disconnect();
-    this.detachPointerSource();
+    this.detachInput.forEach((detach) => detach());
     this.renderer.destroy();
   }
 
+  private attachInput(canvas: HTMLElement): readonly (() => void)[] {
+    const dispatch = (intents: readonly Intent[]): void =>
+      intents.forEach((intent) => this.handleIntent(intent));
+    return [
+      attachPointerSource(canvas, (sample) => dispatch(this.recognizer.handle(sample))),
+      attachWheelSource(canvas, (sample) => dispatch(this.recognizer.handleWheel(sample))),
+      attachSpaceKeySource(canvas, (isHeld) => this.recognizer.setSpaceHeld(isHeld)),
+      attachNativeGestureGuard(canvas),
+    ];
+  }
+
   private handleIntent(intent: Intent): void {
+    if (isCameraIntent(intent)) {
+      this.camera.handle(intent);
+      return;
+    }
     this.commitPendingEdit();
     if (intent.type === "doubleTap") {
       this.startEditingIfNode(intent.target);

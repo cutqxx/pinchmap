@@ -1,0 +1,102 @@
+import { addChild, addSibling, deleteBranch } from "../commands";
+import { chooseSideForNewBranch, positionBelowRootTree } from "../layout";
+import type { LayoutResult, Size } from "../layout";
+import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, withSidesResolved } from "../model";
+import type { MindMap, NodeId, RootPosition, Side } from "../model";
+import { selectionAfterDelete } from "./selection";
+import type { Selection } from "./selection";
+import type { NewNodeOrigin } from "./textEditing";
+
+export type MapEdit = (map: MindMap) => MindMap;
+export type NodeCreation = (map: MindMap, id: NodeId) => MindMap;
+
+export interface NodeEditsDeps {
+  readonly selection: Selection;
+  getLayout(): LayoutResult | null;
+  getSizes(): ReadonlyMap<NodeId, Size>;
+  onMapChanged(): void;
+  renderFrame(): void;
+  scheduleFrame(): void;
+  beginEditingNewNode(nodeId: NodeId, origin: NewNodeOrigin): void;
+}
+
+export class NodeEdits {
+  private displayMap: MindMap = EMPTY_MIND_MAP;
+
+  constructor(private readonly deps: NodeEditsDeps) {}
+
+  getDisplayMap(): MindMap {
+    return this.displayMap;
+  }
+
+  replaceDisplayMap(map: MindMap): void {
+    this.displayMap = map;
+  }
+
+  /** The single entry point for committed changes to the map. */
+  applyEdit(edit: MapEdit): void {
+    const settledMap = this.mapWithSettledSides();
+    const updatedMap = edit(settledMap);
+    if (updatedMap === settledMap) return;
+    this.displayMap = updatedMap;
+    this.deps.onMapChanged();
+  }
+
+  addChildToSelection(): void {
+    const selectedId = this.deps.selection.current;
+    if (selectedId !== null) this.addChildTo(selectedId);
+  }
+
+  addSiblingToSelection(): void {
+    const selectedId = this.deps.selection.current;
+    if (selectedId !== null) this.addSiblingTo(selectedId);
+  }
+
+  addChildTo(parentId: NodeId): void {
+    const layout = this.deps.getLayout();
+    const side = layout === null ? "right" : chooseSideForNewBranch(layout, parentId);
+    this.createNode((map, id) => addChild(map, { parentId, id, text: "", side }));
+  }
+
+  addSiblingTo(anchorId: NodeId): void {
+    const side: Side = this.deps.getLayout()?.sides.get(anchorId) ?? "right";
+    const rootPosition = this.positionForNewRootBelow(anchorId);
+    this.createNode((map, id) => addSibling(map, { anchorId, id, text: "", side, rootPosition }));
+  }
+
+  /**
+   * Shows the new node right away but leaves it uncommitted: the text edit session
+   * that follows either commits it through applyEdit or discards it.
+   */
+  createNode(creation: NodeCreation): void {
+    const mapBeforeCreation = this.mapWithSettledSides();
+    const nodeId = generateNodeId(new Set(mapBeforeCreation.nodes.keys()));
+    const origin = { mapBeforeCreation, selectionBeforeCreation: this.deps.selection.current };
+    this.displayMap = creation(mapBeforeCreation, nodeId);
+    this.deps.selection.set(nodeId);
+    this.deps.renderFrame();
+    this.deps.beginEditingNewNode(nodeId, origin);
+  }
+
+  deleteSelection(): void {
+    const nodeId = this.deps.selection.current;
+    if (nodeId === null) return;
+    this.deps.selection.set(selectionAfterDelete(this.displayMap, nodeId));
+    this.applyEdit((map) => deleteBranch(map, { nodeId }));
+    this.deps.scheduleFrame();
+  }
+
+  private positionForNewRootBelow(anchorId: NodeId): RootPosition | undefined {
+    const layout = this.deps.getLayout();
+    const rootSize = this.deps.getSizes().get(anchorId);
+    const anchor = getNode(this.displayMap, anchorId);
+    const isPinnedRoot = anchor.parentId === null && readRootPosition(anchor.state) !== undefined;
+    if (!isPinnedRoot || layout === null || rootSize === undefined) return undefined;
+    return positionBelowRootTree(layout, anchorId, rootSize) ?? undefined;
+  }
+
+  private mapWithSettledSides(): MindMap {
+    const layout = this.deps.getLayout();
+    return layout === null ? this.displayMap : withSidesResolved(this.displayMap, layout.sides);
+  }
+}

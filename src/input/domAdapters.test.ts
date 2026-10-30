@@ -583,6 +583,48 @@ describe("attachKeySource", () => {
     expect(event.defaultPrevented).toBe(false);
   });
 
+  it("passes the physical key code so a Russian layout still undoes", () => {
+    const { intents } = attach();
+
+    const event = keydown(element, "я", { ctrlKey: true, code: "KeyZ" });
+
+    expect(intents).toEqual([{ type: "undo" }]);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("passes the physical key code so a Russian layout still redoes", () => {
+    const { intents } = attach();
+
+    keydown(element, "н", { ctrlKey: true, code: "KeyY" });
+
+    expect(intents).toEqual([{ type: "redo" }]);
+  });
+
+  it("reports Ctrl+Shift+Z as redo", () => {
+    const { intents } = attach();
+
+    keydown(element, "Z", { ctrlKey: true, shiftKey: true, code: "KeyZ" });
+
+    expect(intents).toEqual([{ type: "redo" }]);
+  });
+
+  it("falls back to the key when the event has no code", () => {
+    const { intents } = attach();
+
+    keydown(element, "z", { metaKey: true });
+
+    expect(intents).toEqual([{ type: "undo" }]);
+  });
+
+  it("leaves Ctrl+Z inside a textarea alone", () => {
+    const { intents } = attach();
+
+    const event = keydown(textarea, "z", { ctrlKey: true, code: "KeyZ" });
+
+    expect(intents).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("reads the mode at the time of each key press", () => {
     let mode: KeyMode = "editing";
     const intents: Intent[] = [];

@@ -1,5 +1,5 @@
 import { setNodeText } from "../commands";
-import { getNode } from "../model";
+import { getNode, isEmptyNodeText } from "../model";
 import type { MindMap, NodeId } from "../model";
 import type { Selection } from "./selection";
 import { beginTextEdit } from "./textEditSession";
@@ -28,7 +28,7 @@ export interface TextEditingDeps {
   getNodeElement(nodeId: NodeId): HTMLElement | undefined;
   getDisplayMap(): MindMap;
   replaceDisplayMap(map: MindMap): void;
-  applyEdit(command: (map: MindMap) => MindMap): void;
+  applyEdit(command: (map: MindMap) => MindMap, undoBase?: MindMap): void;
   focusCanvas(): void;
   scheduleFrame(): void;
   onTextEditEnded(): void;
@@ -58,6 +58,10 @@ export class TextEditing {
   currentDraft(): EditingDraft | null {
     const editing = this.editing;
     return editing && { nodeId: editing.nodeId, draftText: editing.draftText };
+  }
+
+  isEmptyNewNode(): boolean {
+    return this.editing !== null && this.editing.newNode !== null && isEmptyNodeText(this.editing.draftText);
   }
 
   commit(end?: TextEditEnd): void {
@@ -96,10 +100,10 @@ export class TextEditing {
   private finishEditing(nodeId: NodeId, finalText: string, end: TextEditEnd): void {
     const newNode = this.editing?.newNode ?? null;
     this.editing = null;
-    if (newNode !== null && finalText === "") {
+    if (newNode !== null && isEmptyNodeText(finalText)) {
       this.discardNewNode(newNode);
     } else {
-      this.commitText(nodeId, finalText);
+      this.commitText(nodeId, finalText, newNode?.mapBeforeCreation);
     }
     if (this.shouldRefocusCanvas(end)) this.deps.focusCanvas();
     this.deps.scheduleFrame();
@@ -118,7 +122,7 @@ export class TextEditing {
     this.deps.selection.set(selectionBeforeCreation);
   }
 
-  private commitText(nodeId: NodeId, finalText: string): void {
-    this.deps.applyEdit((map) => setNodeText(map, { nodeId, text: finalText }));
+  private commitText(nodeId: NodeId, finalText: string, undoBase?: MindMap): void {
+    this.deps.applyEdit((map) => setNodeText(map, { nodeId, text: finalText }), undoBase);
   }
 }

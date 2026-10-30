@@ -16,3 +16,7 @@ function commonPrefix(a: string, b: string): string {
   while (length < a.length && a[length] === b[length]) length++;
   return a.slice(0, length);
 }
+
+export function isEmptyNodeText(text: string): boolean {
+  return canonicalNodeText(text) === "";
+}

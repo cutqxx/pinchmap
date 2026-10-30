@@ -1,4 +1,4 @@
-import { addChild, addSibling, deleteBranch } from "../commands";
+import { History, addChild, addSibling, deleteBranch } from "../commands";
 import { chooseSideForNewBranch, positionBelowRootTree } from "../layout";
 import type { LayoutResult, Size } from "../layout";
 import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, withSidesResolved } from "../model";
@@ -15,6 +15,7 @@ export interface NodeEditsDeps {
   getLayout(): LayoutResult | null;
   getSizes(): ReadonlyMap<NodeId, Size>;
   onMapChanged(): void;
+  onHistoryChanged?(canUndo: boolean, canRedo: boolean): void;
   renderFrame(): void;
   scheduleFrame(): void;
   beginEditingNewNode(nodeId: NodeId, origin: NewNodeOrigin): void;
@@ -22,6 +23,7 @@ export interface NodeEditsDeps {
 
 export class NodeEdits {
   private displayMap: MindMap = EMPTY_MIND_MAP;
+  private readonly history = new History();
 
   constructor(private readonly deps: NodeEditsDeps) {}
 
@@ -33,13 +35,33 @@ export class NodeEdits {
     this.displayMap = map;
   }
 
-  /** The single entry point for committed changes to the map. */
-  applyEdit(edit: MapEdit): void {
+  /**
+   * The single entry point for committed changes to the map.
+   * `undoBase` is the map one undo step returns to; it defaults to the map before the edit.
+   */
+  applyEdit(edit: MapEdit, undoBase?: MindMap): void {
     const settledMap = this.mapWithSettledSides();
     const updatedMap = edit(settledMap);
     if (updatedMap === settledMap) return;
+    this.history.push(undoBase ?? settledMap);
     this.displayMap = updatedMap;
+    this.notifyHistoryChanged();
     this.deps.onMapChanged();
+  }
+
+  undo(): void {
+    const restored = this.history.undo(this.mapWithSettledSides());
+    if (restored !== null) this.showRestoredMap(restored);
+  }
+
+  redo(): void {
+    const restored = this.history.redo(this.mapWithSettledSides());
+    if (restored !== null) this.showRestoredMap(restored);
+  }
+
+  clearHistory(): void {
+    this.history.clear();
+    this.notifyHistoryChanged();
   }
 
   addChildToSelection(): void {
@@ -90,6 +112,18 @@ export class NodeEdits {
     this.deps.selection.set(selectionAfterDelete(this.displayMap, nodeId));
     this.applyEdit((map) => deleteBranch(map, { nodeId }));
     this.deps.scheduleFrame();
+  }
+
+  private showRestoredMap(restored: MindMap): void {
+    const selectedId = this.deps.selection.current;
+    this.displayMap = restored;
+    this.deps.selection.select(selectedId !== null && restored.nodes.has(selectedId) ? selectedId : null);
+    this.notifyHistoryChanged();
+    this.deps.onMapChanged();
+  }
+
+  private notifyHistoryChanged(): void {
+    this.deps.onHistoryChanged?.(this.history.canUndo, this.history.canRedo);
   }
 
   private hasNode(nodeId: NodeId): boolean {

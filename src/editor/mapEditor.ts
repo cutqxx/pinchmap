@@ -29,6 +29,7 @@ export type { MenuItem };
 
 export interface MapHost {
   onMapChanged(): void;
+  onHistoryChanged?(canUndo: boolean, canRedo: boolean): void;
   showMenu(items: readonly MenuItem[], at: ScreenPoint): void;
   onTextEditEnded(): void;
   notify(message: string): void;
@@ -114,6 +115,7 @@ export class MapEditor {
   loadMap(map: MindMap): void {
     this.textEditing.cancel();
     this.nodeEdits.replaceDisplayMap(map);
+    this.nodeEdits.clearHistory();
     this.selection.set(null);
     this.layout = null;
     this.sizes = new Map();
@@ -125,6 +127,25 @@ export class MapEditor {
     this.selection.set(nodeId);
     this.renderFrame();
     this.textEditing.beginEditing(nodeId, null);
+  }
+
+  /**
+   * Undo while an empty new node is open only discards that node. Typed-in new
+   * nodes and edits of existing nodes are committed first, then undone.
+   */
+  undo(): void {
+    const isDiscardingEmptyNewNode = this.textEditing.isEmptyNewNode();
+    this.commitPendingEdit();
+    if (!isDiscardingEmptyNewNode) this.nodeEdits.undo();
+  }
+
+  /**
+   * Redo with an empty new node open discards the node (no history step),
+   * then redoes.
+   */
+  redo(): void {
+    this.commitPendingEdit();
+    this.nodeEdits.redo();
   }
 
   setLongPressSeconds(seconds: number): void {
@@ -156,6 +177,7 @@ export class MapEditor {
       getLayout: () => this.layout,
       getSizes: () => this.sizes,
       onMapChanged: () => this.host.onMapChanged(),
+      onHistoryChanged: (canUndo, canRedo) => this.host.onHistoryChanged?.(canUndo, canRedo),
       renderFrame: () => this.renderFrame(),
       scheduleFrame: () => this.scheduleFrame(),
       beginEditingNewNode: (nodeId, origin) => this.textEditing.beginEditing(nodeId, origin),
@@ -169,7 +191,7 @@ export class MapEditor {
       getNodeElement: (nodeId) => this.renderer.getNodeElement(nodeId),
       getDisplayMap: () => this.nodeEdits.getDisplayMap(),
       replaceDisplayMap: (map) => this.nodeEdits.replaceDisplayMap(map),
-      applyEdit: (edit) => this.nodeEdits.applyEdit(edit),
+      applyEdit: (edit, undoBase) => this.nodeEdits.applyEdit(edit, undoBase),
       focusCanvas: () => this.renderer.focusCanvas(),
       scheduleFrame: () => this.scheduleFrame(),
       onTextEditEnded: () => this.host.onTextEditEnded(),
@@ -248,6 +270,10 @@ export class MapEditor {
         return this.editSelection();
       case "clearSelection":
         return this.selection.select(null);
+      case "undo":
+        return this.undo();
+      case "redo":
+        return this.redo();
     }
   }
 

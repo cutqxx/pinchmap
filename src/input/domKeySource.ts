@@ -10,7 +10,17 @@ export function attachKeySource(
 ): () => void {
   const onKeyDown = (event: KeyboardEvent): void => {
     const mode = isNativeTextInputTarget(event.target) ? "editing" : getMode();
-    const intent = keyToIntent(event, mode);
+    const intent = keyToIntent(
+      {
+        key: event.key,
+        code: event.code,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+      },
+      mode,
+    );
     if (intent === null) return;
     event.preventDefault();
     onIntent(intent);

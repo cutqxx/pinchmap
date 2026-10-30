@@ -13,6 +13,11 @@ export const MAP_VIEW_TYPE = "pinchmap-view";
 
 const AUTOSAVE_DELAY_MS = 1000;
 const VIEW_ICON = "network";
+const HISTORY_ACTION_CLASS = "pinchmap-history-action";
+
+function setActionEnabled(action: HTMLElement, isEnabled: boolean): void {
+  action.setAttribute("aria-disabled", String(!isEnabled));
+}
 
 export class MapView extends TextFileView {
   private readonly editor: MapEditor;
@@ -28,6 +33,8 @@ export class MapView extends TextFileView {
     onReloadDeferred: () => this.holdUnsavedEditsForDeferredReload(),
   });
   private hasUnsavedEditsHeldBack = false;
+  private readonly undoAction: HTMLElement;
+  private readonly redoAction: HTMLElement;
 
   private readonly notify = (message: string): void => {
     new Notice(message);
@@ -46,11 +53,15 @@ export class MapView extends TextFileView {
       labels: { addChild: t("addChild"), addSibling: t("addSibling") },
       host: {
         onMapChanged: () => this.autosave.schedule(),
+        onHistoryChanged: (canUndo, canRedo) => this.showHistoryAvailability(canUndo, canRedo),
         onTextEditEnded: () => this.externalChanges.resumeAfterTextEdit(),
         showMenu: showObsidianMenu,
         notify: this.notify,
       },
     });
+    this.redoAction = this.addHistoryAction("redo-2", t("redo"), () => this.editor.redo());
+    this.undoAction = this.addHistoryAction("undo-2", t("undo"), () => this.editor.undo());
+    this.showHistoryAvailability(false, false);
     this.registerEvent(this.app.vault.on("modify", (file) => void this.handleVaultModify(file)));
   }
 
@@ -98,6 +109,19 @@ export class MapView extends TextFileView {
     this.editor.commitPendingEdit();
     await this.autosave.flush();
     await super.onUnloadFile(file);
+  }
+
+  private addHistoryAction(icon: string, label: string, run: () => void): HTMLElement {
+    const action = this.addAction(icon, label, () => {
+      if (action.getAttribute("aria-disabled") !== "true") run();
+    });
+    action.classList.add(HISTORY_ACTION_CLASS);
+    return action;
+  }
+
+  private showHistoryAvailability(canUndo: boolean, canRedo: boolean): void {
+    setActionEnabled(this.undoAction, canUndo);
+    setActionEnabled(this.redoAction, canRedo);
   }
 
   private async handleVaultModify(file: TAbstractFile): Promise<void> {

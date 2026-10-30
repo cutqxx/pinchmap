@@ -167,3 +167,16 @@
   box-shadow: none;
   font-weight: var(--font-semibold, 600);
 }
+
+.view-action.pinchmap-history-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.view-action.pinchmap-history-action[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}

@@ -1,4 +1,5 @@
 import { LongPressTimer } from "./longPressTimer";
+import { MultiFingerTap } from "./multiFingerTap";
 import { advancePinch, involvesPointer, startPinch } from "./pinch";
 import type { PinchState, ScreenPoint } from "./pinch";
 import { wheelToIntent } from "./wheelIntent";
@@ -49,13 +50,16 @@ export type Intent =
   | { readonly type: "addSibling" }
   | { readonly type: "deleteSelection" }
   | { readonly type: "editSelection" }
-  | { readonly type: "clearSelection" };
+  | { readonly type: "clearSelection" }
+  | { readonly type: "undo" }
+  | { readonly type: "redo" };
 
 export interface GestureConfig {
   readonly dragThresholdPx: number;
   readonly doubleTapIntervalMs: number;
   readonly doubleTapDistancePx: number;
   readonly longPressMs?: number;
+  readonly multiFingerTapMs?: number;
 }
 
 export interface ContextMenuSample {
@@ -65,6 +69,7 @@ export interface ContextMenuSample {
 }
 
 export const DEFAULT_LONG_PRESS_MS = 500;
+export const DEFAULT_MULTI_FINGER_TAP_MS = 300;
 
 export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
   dragThresholdPx: 8,
@@ -108,6 +113,7 @@ export class GestureRecognizer {
   private readonly activePointerIds = new Set<number>();
   private readonly touchPoints = new Map<number, ScreenPoint>();
   private readonly longPressTimer = new LongPressTimer();
+  private readonly multiFingerTap: MultiFingerTap;
   private longPressMs: number;
 
   constructor(
@@ -115,6 +121,10 @@ export class GestureRecognizer {
     private readonly emit: (intent: Intent) => void = () => undefined,
   ) {
     this.longPressMs = config.longPressMs ?? DEFAULT_LONG_PRESS_MS;
+    this.multiFingerTap = new MultiFingerTap(
+      config.dragThresholdPx,
+      config.multiFingerTapMs ?? DEFAULT_MULTI_FINGER_TAP_MS,
+    );
   }
 
   handle(sample: PointerSample): readonly Intent[] {
@@ -155,6 +165,7 @@ export class GestureRecognizer {
     this.pinch = null;
     this.activePointerIds.clear();
     this.touchPoints.clear();
+    this.multiFingerTap.reset();
   }
 
   private onDown(sample: PointerSample): readonly Intent[] {
@@ -162,12 +173,19 @@ export class GestureRecognizer {
     const hadOtherPointers = this.activePointerIds.size > 0;
     this.activePointerIds.add(sample.pointerId);
     if (sample.kind === "touch") this.touchPoints.set(sample.pointerId, sample);
+    this.trackMultiFingerTap(sample, hadOtherPointers);
     if (hadOtherPointers) return [...staleIntents, ...this.onAdditionalPointer()];
     const isPrimary = sample.kind === "touch" || sample.button === PRIMARY_BUTTON;
     this.candidate = isPrimary ? startCandidate(sample) : null;
     this.panDrag = this.startPanDrag(sample);
     this.startLongPressIfEligible(sample);
     return staleIntents;
+  }
+
+  private trackMultiFingerTap(sample: PointerSample, hadOtherPointers: boolean): void {
+    if (sample.kind !== "touch") return this.multiFingerTap.invalidate();
+    if (hadOtherPointers) return this.multiFingerTap.addFinger(sample.pointerId, sample, sample.time);
+    this.multiFingerTap.startWith(sample.pointerId, sample, sample.time);
   }
 
   private discardStalePress(pointerId: number): readonly Intent[] {
@@ -232,6 +250,7 @@ export class GestureRecognizer {
       this.touchPoints.set(sample.pointerId, sample);
     }
     this.invalidateCandidateBeyondThreshold(sample);
+    this.multiFingerTap.move(sample.pointerId, sample);
     if (this.pinch !== null) return this.movePinch(sample);
     return this.movePanDrag(sample);
   }
@@ -248,7 +267,8 @@ export class GestureRecognizer {
   private movePinch(sample: PointerSample): readonly Intent[] {
     if (this.pinch === null || !involvesPointer(this.pinch, sample.pointerId)) return [];
     const step = advancePinch(this.pinch, this.touchPoints);
-    return step === null ? [] : [{ type: "pinch", ...step }];
+    if (step === null) return [];
+    return [{ type: "pinch", ...step }];
   }
 
   private movePanDrag(sample: PointerSample): readonly Intent[] {
@@ -269,7 +289,7 @@ export class GestureRecognizer {
 
   private onUp(sample: PointerSample): readonly Intent[] {
     this.forgetPointer(sample.pointerId);
-    const gestureEnd = this.finishGestureOf(sample.pointerId);
+    const gestureEnd = [...this.finishGestureOf(sample.pointerId), ...this.finishMultiFingerTap(sample)];
     const candidate = this.candidate;
     if (candidate === null || candidate.pointerId !== sample.pointerId) return gestureEnd;
     this.longPressTimer.cancel();
@@ -279,6 +299,12 @@ export class GestureRecognizer {
       return gestureEnd;
     }
     return [...gestureEnd, this.completeTap(candidate, sample)];
+  }
+
+  private finishMultiFingerTap(sample: PointerSample): readonly Intent[] {
+    if (this.activePointerIds.size > 0) return [];
+    const result = this.multiFingerTap.finishWhenLastFingerLifts(sample.time);
+    return result === null ? [] : [{ type: result }];
   }
 
   private onCancel(sample: PointerSample): readonly Intent[] {
@@ -292,6 +318,7 @@ export class GestureRecognizer {
     this.longPressTimer.cancel();
     this.candidate = null;
     this.lastTap = null;
+    this.multiFingerTap.reset();
     return gestureEnd;
   }
 

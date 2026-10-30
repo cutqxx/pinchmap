@@ -68,3 +68,13 @@ describe("t empty-space menu and long press setting", () => {
     expect(t(key, "en")).toBe(en);
   });
 });
+
+describe("t undo and redo labels", () => {
+  it.each([
+    ["undo", "Отменить", "Undo"],
+    ["redo", "Повторить", "Redo"],
+  ] as const)("returns the %s label in ru and en", (key, ru, en) => {
+    expect(t(key, "ru")).toBe(ru);
+    expect(t(key, "en")).toBe(en);
+  });
+});

@@ -827,3 +827,265 @@ describe("GestureRecognizer plus button targets", () => {
     expect(intents).toEqual([]);
   });
 });
+
+describe("GestureRecognizer multi-finger tap", () => {
+  const finger = (pointerId: number, phase: PointerSample["phase"], time: number, overrides: Partial<PointerSample> = {}) =>
+    sample({ phase, pointerId, time, x: 100 + pointerId * 60, y: 100, ...overrides });
+
+  function fingersDown(count: number, time = 0, overrides: Partial<PointerSample> = {}): PointerSample[] {
+    return Array.from({ length: count }, (_, index) => finger(index + 1, "down", time, overrides));
+  }
+
+  function fingersUp(count: number, time: number, overrides: Partial<PointerSample> = {}): PointerSample[] {
+    return Array.from({ length: count }, (_, index) => finger(index + 1, "up", time, overrides));
+  }
+
+  function undoOrRedo(intents: Intent[]): Intent[] {
+    return intents.filter((intent) => intent.type === "undo" || intent.type === "redo");
+  }
+
+  function selectionIntents(intents: Intent[]): Intent[] {
+    return intents.filter((i) => i.type === "tap" || i.type === "doubleTap" || i.type === "longPress");
+  }
+
+  it("reports undo for a quick two-finger tap", () => {
+    const intents = feed(new GestureRecognizer(), [...fingersDown(2), ...fingersUp(2, 100)]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "undo" }]);
+  });
+
+  it("reports redo for a quick three-finger tap", () => {
+    const intents = feed(new GestureRecognizer(), [...fingersDown(3), ...fingersUp(3, 100)]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "redo" }]);
+  });
+
+  it("reports undo only when the last finger lifts", () => {
+    const recognizer = new GestureRecognizer();
+    feed(recognizer, fingersDown(2));
+
+    const afterFirstLift = feed(recognizer, [finger(1, "up", 90)]);
+    const afterLastLift = feed(recognizer, [finger(2, "up", 100)]);
+
+    expect([undoOrRedo(afterFirstLift), undoOrRedo(afterLastLift)]).toEqual([[], [{ type: "undo" }]]);
+  });
+
+  it("reports undo again for a second two-finger tap", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(2, 0),
+      ...fingersUp(2, 100),
+      ...fingersDown(2, 1000),
+      ...fingersUp(2, 1100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "undo" }, { type: "undo" }]);
+  });
+
+  it("reports nothing when the last finger lifts 301 ms after the first touched down", () => {
+    const intents = feed(new GestureRecognizer(), [...fingersDown(2, 0), ...fingersUp(2, 301)]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("accepts a tap lasting exactly 300 ms because the multi-finger limit is inclusive", () => {
+    const intents = feed(new GestureRecognizer(), [...fingersDown(2, 0), ...fingersUp(2, 300)]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "undo" }]);
+  });
+
+  it("honours a custom multiFingerTapMs", () => {
+    const recognizer = new GestureRecognizer({
+      dragThresholdPx: 8,
+      doubleTapIntervalMs: 300,
+      doubleTapDistancePx: 24,
+      multiFingerTapMs: 100,
+    });
+
+    const intents = feed(recognizer, [...fingersDown(2, 0), ...fingersUp(2, 150)]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  // The third finger does not take part in the pinch, so only the 8 px movement rule applies to it.
+  it("reports redo when the third finger drifts exactly 8 px", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(3),
+      finger(3, "move", 50, { x: 280 + 8, y: 100 }),
+      ...fingersUp(3, 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "redo" }]);
+  });
+
+  it("reports nothing when the third finger moved over 8 px", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(3),
+      finger(3, "move", 50, { x: 280 + 9, y: 100 }),
+      ...fingersUp(3, 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("reports undo for a two-finger tap with 1-3 px jitter on both fingers", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(2),
+      finger(1, "move", 20, { x: 160 + 2, y: 100 + 1 }),
+      finger(2, "move", 30, { x: 220 - 3, y: 100 }),
+      finger(1, "move", 40, { x: 160 - 1, y: 100 + 2 }),
+      ...fingersUp(2, 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "undo" }]);
+  });
+
+  it("reports undo when one finger drifts exactly 8 px", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(2),
+      finger(2, "move", 50, { x: 220 + 8, y: 100 }),
+      ...fingersUp(2, 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "undo" }]);
+  });
+
+  it("reports nothing when one finger drifts 9 px", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(2),
+      finger(2, "move", 50, { x: 220 + 9, y: 100 }),
+      ...fingersUp(2, 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("reports nothing when a finger exceeds 8 px and then returns to its origin", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(2),
+      finger(1, "move", 30, { x: 160 + 9, y: 100 }),
+      finger(1, "move", 60, { x: 160, y: 100 }),
+      ...fingersUp(2, 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("reports redo for a three-finger tap with jitter on every finger", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(3),
+      finger(1, "move", 20, { x: 160 + 2, y: 100 - 2 }),
+      finger(2, "move", 30, { x: 220 - 1, y: 100 + 3 }),
+      finger(3, "move", 40, { x: 280 + 3, y: 100 + 1 }),
+      ...fingersUp(3, 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "redo" }]);
+  });
+
+  it("reports nothing after a two-finger pan", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(2),
+      finger(1, "move", 40, { x: 160 + 30, y: 130 }),
+      finger(2, "move", 50, { x: 220 + 30, y: 130 }),
+      ...fingersUp(2, 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("still reports the two-finger pan movement as pinch intents", () => {
+    const recognizer = new GestureRecognizer();
+    feed(recognizer, fingersDown(2));
+
+    const intents = feed(recognizer, [
+      finger(1, "move", 40, { x: 160 + 30, y: 100 }),
+      finger(2, "move", 50, { x: 220 + 30, y: 100 }),
+    ]);
+
+    expect(intents.filter((intent) => intent.type === "pinch").length).toBeGreaterThan(0);
+  });
+
+  it("reports nothing when a fourth finger joins", () => {
+    const intents = feed(new GestureRecognizer(), [...fingersDown(4), ...fingersUp(4, 100)]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("reports nothing when a fourth finger joins after three", () => {
+    const recognizer = new GestureRecognizer();
+    feed(recognizer, fingersDown(3));
+
+    const intents = feed(recognizer, [finger(4, "down", 50), ...fingersUp(4, 100)]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("reports nothing after a pointercancel", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(2),
+      finger(1, "cancel", 50),
+      finger(2, "up", 100),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("reports nothing when a mouse pointer is mixed in with a finger", () => {
+    const intents = feed(new GestureRecognizer(), [
+      finger(1, "down", 0),
+      finger(2, "down", 0, { kind: "mouse" }),
+      finger(1, "up", 100),
+      finger(2, "up", 100, { kind: "mouse" }),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("reports nothing when a mouse pointer was down first", () => {
+    const intents = feed(new GestureRecognizer(), [
+      finger(1, "down", 0, { kind: "mouse" }),
+      finger(2, "down", 0),
+      finger(3, "down", 0),
+      ...fingersUp(3, 100).map((up, index) => (index === 0 ? { ...up, kind: "mouse" as const } : up)),
+    ]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("emits no tap, doubleTap or longPress for a two-finger tap on nodes", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(2, 0, { target: NODE_A }),
+      ...fingersUp(2, 100, { target: NODE_A }),
+    ]);
+
+    expect(selectionIntents(intents)).toEqual([]);
+    expect(undoOrRedo(intents)).toEqual([{ type: "undo" }]);
+  });
+
+  it("emits no tap or doubleTap for a three-finger tap on the canvas, even repeated quickly", () => {
+    const intents = feed(new GestureRecognizer(), [
+      ...fingersDown(3, 0),
+      ...fingersUp(3, 80),
+      ...fingersDown(3, 150),
+      ...fingersUp(3, 230),
+    ]);
+
+    expect(selectionIntents(intents)).toEqual([]);
+    expect(undoOrRedo(intents)).toEqual([{ type: "redo" }, { type: "redo" }]);
+  });
+
+  it("does not turn a single-finger tap into undo or redo", () => {
+    const intents = feed(new GestureRecognizer(), [...fingersDown(1), ...fingersUp(1, 100)]);
+
+    expect(undoOrRedo(intents)).toEqual([]);
+  });
+
+  it("starts a clean session after a failed multi-finger gesture", () => {
+    const recognizer = new GestureRecognizer();
+    feed(recognizer, [...fingersDown(2, 0), ...fingersUp(2, 500)]);
+
+    const intents = feed(recognizer, [...fingersDown(2, 1000), ...fingersUp(2, 1100)]);
+
+    expect(undoOrRedo(intents)).toEqual([{ type: "undo" }]);
+  });
+});

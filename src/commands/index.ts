@@ -8,3 +8,4 @@ export type { DeleteBranchArgs } from "./deleteBranch";
 export { deleteBranch } from "./deleteBranch";
 export type { AddRootArgs } from "./addRoot";
 export { addRoot } from "./addRoot";
+export { History, DEFAULT_HISTORY_DEPTH } from "./history";

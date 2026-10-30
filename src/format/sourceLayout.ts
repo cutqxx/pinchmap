@@ -43,15 +43,16 @@ export function rewriteItemLines(item: SourceItem, id: NodeId, text: string): st
   return [...terminateLines(textLines, item), ...item.trailingBlankLines];
 }
 
-const BULLET_LIKE_LINE = /^\\*[-*+][ \t]/;
-const ESCAPED_BULLET_LIKE_LINE = /^\\+[-*+][ \t]/;
+// The backslash goes after any leading whitespace, so an indented bullet-like line is not read back as a child item.
+const BULLET_LIKE_LINE = /^([ \t]*)(\\*[-*+][ \t])/;
+const ESCAPED_BULLET_LIKE_LINE = /^([ \t]*)\\(\\*[-*+][ \t])/;
 
 export function escapeBulletLikeLine(line: string): string {
-  return BULLET_LIKE_LINE.test(line) ? `\\${line}` : line;
+  return line.replace(BULLET_LIKE_LINE, "$1\\$2");
 }
 
 export function unescapeBulletLikeLine(line: string): string {
-  return ESCAPED_BULLET_LIKE_LINE.test(line) ? line.slice(1) : line;
+  return line.replace(ESCAPED_BULLET_LIKE_LINE, "$1$2");
 }
 
 function chooseContinuationIndent(item: SourceItem, continuation: readonly string[]): string {

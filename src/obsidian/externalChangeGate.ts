@@ -27,7 +27,7 @@ export class ExternalChangeGate {
   }
 
   receive(text: string): void {
-    if (this.dropKnownTextsOlderThan(text)) return;
+    if (this.isEchoOfOwnSave(text)) return;
     if (this.handlers.isEditingText()) {
       this.deferredText = text;
       this.knownTexts = [text];
@@ -42,10 +42,16 @@ export class ExternalChangeGate {
     this.reload(this.deferredText);
   }
 
-  private dropKnownTextsOlderThan(text: string): boolean {
+  /**
+   * The newest own text may be echoed any number of times. An older own text is a late echo of a save
+   * that a newer one has already replaced: it is ignored once, together with everything older. After
+   * that it is an ordinary external change, so a file restored to it later still reloads.
+   */
+  private isEchoOfOwnSave(text: string): boolean {
     const index = this.knownTexts.lastIndexOf(text);
     if (index === -1) return false;
-    this.knownTexts = this.knownTexts.slice(index);
+    const isNewest = index === this.knownTexts.length - 1;
+    this.knownTexts = this.knownTexts.slice(isNewest ? index : index + 1);
     return true;
   }
 

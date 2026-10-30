@@ -407,3 +407,123 @@ describe("ExternalChangeGate known texts after a reload", () => {
     expect(reload).toHaveBeenCalledExactlyOnceWith("B");
   });
 });
+
+describe("ExternalChangeGate echoes of own saves", () => {
+  it("ignores the newest own text any number of times", () => {
+    const { gate, reload } = createGate("T0");
+    gate.noteKnownText("T1");
+
+    ["T1", "T1", "T1", "T1"].forEach((text) => gate.receive(text));
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("ignores an older own text once", () => {
+    const { gate, reload } = createGate("T0");
+    gate.noteKnownText("T1");
+    gate.noteKnownText("T2");
+
+    gate.receive("T1");
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("reloads an older own text when it arrives a second time", () => {
+    const { gate, reload } = createGate("T0");
+    gate.noteKnownText("T1");
+    gate.noteKnownText("T2");
+    gate.receive("T1");
+
+    gate.receive("T1");
+
+    expect(reload).toHaveBeenCalledExactlyOnceWith("T1");
+  });
+
+  it("forgets everything older than a consumed old echo as well", () => {
+    const { gate, reload } = createGate("T0");
+    ["T1", "T2", "T3"].forEach((text) => gate.noteKnownText(text));
+    gate.receive("T2");
+
+    gate.receive("T0");
+    gate.receive("T1");
+
+    expect(reload.mock.calls).toEqual([["T0"], ["T1"]]);
+  });
+
+  it("still ignores the newest text after an old echo was consumed", () => {
+    const { gate, reload } = createGate("T0");
+    ["T1", "T2", "T3"].forEach((text) => gate.noteKnownText(text));
+    gate.receive("T1");
+
+    ["T3", "T3", "T3"].forEach((text) => gate.receive(text));
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("does not reload for the echoes of rapid successive saves arriving in order", () => {
+    const { gate, reload } = createGate("T0");
+    ["T1", "T2", "T3", "T4"].forEach((text) => gate.noteKnownText(text));
+
+    ["T1", "T2", "T3", "T4", "T4"].forEach((text) => gate.receive(text));
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("does not reload for echoes of rapid saves when only the newest content is read each time", () => {
+    const { gate, reload } = createGate("T0");
+    ["T1", "T2", "T3"].forEach((text) => gate.noteKnownText(text));
+
+    ["T3", "T3", "T3"].forEach((text) => gate.receive(text));
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("reloads a file restored to an older version once the echoes of the saves have been seen", () => {
+    const { gate, reload } = createGate("T0");
+    ["T1", "T2", "T3"].forEach((text) => {
+      gate.noteKnownText(text);
+      gate.receive(text);
+    });
+
+    gate.receive("T2");
+
+    expect(reload).toHaveBeenCalledExactlyOnceWith("T2");
+  });
+
+  it("reloads a file restored to the initial text after later saves were echoed", () => {
+    const { gate, reload } = createGate("T0");
+    gate.noteKnownText("T1");
+    gate.receive("T1");
+
+    gate.receive("T0");
+
+    expect(reload).toHaveBeenCalledExactlyOnceWith("T0");
+  });
+
+  it("reloads a restored text only once and then ignores its echo", () => {
+    const { gate, reload } = createGate("T0");
+    gate.noteKnownText("T1");
+    gate.receive("T1");
+    gate.receive("T0");
+
+    gate.receive("T0");
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not defer or reload an old echo that arrives during a text edit, and reloads its second arrival after the edit", () => {
+    const { gate, reload, onReloadDeferred, startEditing, stopEditing } = createGate("T0");
+    gate.noteKnownText("T1");
+    gate.noteKnownText("T2");
+    startEditing();
+
+    gate.receive("T1");
+    expect(onReloadDeferred).not.toHaveBeenCalled();
+
+    gate.receive("T1");
+    stopEditing();
+    gate.resumeAfterTextEdit();
+
+    expect(reload).toHaveBeenCalledExactlyOnceWith("T1");
+  });
+});

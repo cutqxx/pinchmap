@@ -41,6 +41,18 @@ export function withoutBranch(map: MindMap, branchId: NodeId): MindMap {
   return { rootIds: map.rootIds, nodes };
 }
 
+/** The whole map reduced to the one root `rootId`: no children, empty text, no stored state. */
+export function withOnlyBlankRoot(map: MindMap, rootId: NodeId): MindMap {
+  const { id } = getNode(map, rootId);
+  return { rootIds: [id], nodes: new Map([[id, { id, text: "", parentId: null, childIds: [] }]]) };
+}
+
+export function isOnlyBlankRoot(map: MindMap): boolean {
+  const [rootId] = map.rootIds;
+  const root = rootId === undefined ? undefined : map.nodes.get(rootId);
+  return map.nodes.size === 1 && root !== undefined && root.text === "" && root.state === undefined;
+}
+
 function collectBranchIds(map: MindMap, branch: MapNode): NodeId[] {
   return [branch.id, ...branch.childIds.flatMap((childId) => collectBranchIds(map, getNode(map, childId)))];
 }

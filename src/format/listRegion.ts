@@ -1,8 +1,10 @@
 import { countFrontmatterLines } from "./frontmatter";
+import { findCodeLines } from "./codeLines";
 import { stripLineEnding } from "./lines";
 
 export const LIST_LINE = /^([ \t]*[-*+][ \t]+)([^\r\n]*?)(\r?\n)?$/;
 const CONTINUATION_LINE = /^[ \t]+[^ \t\r\n]/;
+const THEMATIC_BREAK = /^[ \t]*([-*_])([ \t]*\1){2,}[ \t]*\r?\n?$/;
 
 export interface ListRegion {
   readonly start: number;
@@ -22,8 +24,9 @@ export function findListRegion(lines: readonly string[]): ListRegion {
 
 export function groupIntoItemBlocks(listLines: readonly string[]): ItemBlock[] {
   const bodies: { firstLine: string; body: string[] }[] = [];
-  for (const line of listLines) {
-    if (isListLine(line)) {
+  const isCode = findCodeLines(listLines);
+  for (const [index, line] of listLines.entries()) {
+    if (isListLine(line) && !isCode[index]) {
       bodies.push({ firstLine: line, body: [] });
     } else {
       bodies[bodies.length - 1]?.body.push(line);
@@ -49,7 +52,7 @@ function toItemBlock(firstLine: string, body: readonly string[]): ItemBlock {
 }
 
 function isListLine(line: string): boolean {
-  return LIST_LINE.test(line);
+  return LIST_LINE.test(line) && !THEMATIC_BREAK.test(line);
 }
 
 function isContinuationLine(line: string): boolean {
@@ -58,10 +61,16 @@ function isContinuationLine(line: string): boolean {
 
 function findListStart(lines: readonly string[]): number {
   const firstLineAfterFrontmatter = countFrontmatterLines(lines);
-  const start = lines.findIndex((line, index) => index >= firstLineAfterFrontmatter && isListLine(line));
+  const isCode = findCodeLines(lines, firstLineAfterFrontmatter);
+  const start = lines.findIndex((line, index) => index >= firstLineAfterFrontmatter && !isCode[index] && isListLine(line));
   return start === -1 ? lines.length : start;
 }
 
+/**
+ * A code block or `%%` comment opened inside an item only counts as one while all its lines stay
+ * indented under that item (see findCodeBlocks), so it stays inside the list as the item's text;
+ * one that opens at the margin ends the list like any other text.
+ */
 function findListEnd(lines: readonly string[], listStart: number): number {
   let end = listStart;
   for (let index = listStart; index < lines.length; index++) {

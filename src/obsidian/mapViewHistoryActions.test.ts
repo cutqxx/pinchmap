@@ -41,6 +41,7 @@ vi.mock("obsidian", () => {
       return action;
     }
     registerEvent(): void {}
+    registerDomEvent(): void {}
   }
   return { TextFileView, Notice: vi.fn() };
 });

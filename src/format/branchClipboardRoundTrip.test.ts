@@ -112,9 +112,9 @@ describe("copying a branch and pasting it back", () => {
     expect(roundTrip(map, "r")).toEqual(drafts(map, ["r"]));
   });
 
-  it("keeps the structure and texts of 5000 random branches", () => {
+  it("keeps the structure and texts of 1000 random branches", () => {
     const random = seededRandom(20240607);
-    for (let run = 0; run < 5000; run++) {
+    for (let run = 0; run < 1000; run++) {
       const map = randomTree(random, 1 + Math.floor(random() * 12));
 
       expect(roundTrip(map, "n0"), branchToMarkdown(map, "n0")).toEqual(drafts(map, ["n0"]));

@@ -419,14 +419,14 @@ describe("MapEditor deleting", () => {
     expect(selectedIds()).toEqual(["r1"]);
   });
 
-  it("selects nothing after deleting the only root", () => {
+  it("keeps the only root blank and selected after deleting it", () => {
     openMap(buildMindMap([{ id: "r1", text: "Root", parentId: null }]));
     tapOn(nodeElement("r1"));
 
     press("Delete");
 
-    expect(editor.getMap().nodes.size).toBe(0);
-    expect(selectedIds()).toEqual([]);
+    expect([...editor.getMap().nodes.values()].map((node) => node.text)).toEqual([""]);
+    expect(selectedIds()).toEqual(["r1"]);
   });
 
   it("does nothing on Delete when no node is selected", () => {

@@ -8,8 +8,15 @@ export function serializeMapFile(map: MindMap, source: SourceLayout): string {
   const isEdited = map !== source.loadedMap;
   const items = serializeItems(map, source, isEdited);
   if (!isEdited) return source.head + items + source.tail;
-  if (source.json.location === "head") return withJsonBlockInHead(source.head, items + source.tail, map, source.json);
-  return withJsonBlock(source.head + items, source.tail, map, source.json);
+  const head = endLineBefore(items, source);
+  if (source.json.location === "head") return withJsonBlockInHead(head, items + source.tail, map, source.json);
+  return withJsonBlock(head + items, source.tail, map, source.json);
+}
+
+/** A file without a list ends in plain text, which may lack its final line ending; the first item needs its own line. */
+function endLineBefore(items: string, { head, json }: SourceLayout): string {
+  const needsLineEnding = items !== "" && head !== "" && !head.endsWith("\n");
+  return needsLineEnding ? head + json.lineEnding : head;
 }
 
 /** The indent an item was written with, and whether it is the indent it had in the loaded file. */
@@ -58,7 +65,7 @@ function indentFromSource(node: MapNode, source: SourceLayout, written: Readonly
 function linesForNode(node: MapNode, { indent, isFromSource }: WrittenIndent, source: SourceLayout, isEdited: boolean): readonly string[] {
   const loadedItem = source.items.get(node.id);
   if (loadedItem === undefined) {
-    return renderNewItemLines(indent, node.text, node.id);
+    return renderNewItemLines(indent, node.text, node.id, source.json.lineEnding);
   }
   const item = isFromSource ? loadedItem : reindentItem(loadedItem, indent);
   const needsId = isEdited && !item.hasWrittenId;

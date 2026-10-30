@@ -128,3 +128,37 @@ describe("mindmap key case sensitivity", () => {
     expect(withMindmapFlag("---\nMindMap: x\n---\n- a\n")).toBe("---\nMindMap: x\nmindmap: true\n---\n- a\n");
   });
 });
+
+describe("hasMindmapFlag spellings of true", () => {
+  it.each(["true", "True", "TRUE"])("is true for mindmap: %s", (value) => {
+    expect(hasMindmapFlag(`---\nmindmap: ${value}\n---\n`)).toBe(true);
+  });
+
+  it("is true with a trailing comment", () => {
+    expect(hasMindmapFlag("---\nmindmap: true # my map\n---\n")).toBe(true);
+  });
+
+  it("is true with a comment right after the value", () => {
+    expect(hasMindmapFlag("---\nmindmap: true #note\n---\n")).toBe(true);
+  });
+
+  it("is true with a tab before the value and trailing spaces", () => {
+    expect(hasMindmapFlag("---\nmindmap:\ttrue  \n---\n")).toBe(true);
+  });
+
+  it("is true without a space after the colon", () => {
+    expect(hasMindmapFlag("---\nmindmap:true\n---\n")).toBe(true);
+  });
+
+  it("is true with a comment in a CRLF file", () => {
+    expect(hasMindmapFlag("---\r\nmindmap: TRUE # c\r\n---\r\n")).toBe(true);
+  });
+
+  it.each(["tRUE", "yes", "truee", "true x", "'true'", "false", "False", "1", ""])("is false for mindmap: %j", (value) => {
+    expect(hasMindmapFlag(`---\nmindmap: ${value}\n---\n`)).toBe(false);
+  });
+
+  it("is false when the value is glued to a comment marker", () => {
+    expect(hasMindmapFlag("---\nmindmap: true#x\n---\n")).toBe(false);
+  });
+});

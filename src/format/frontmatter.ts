@@ -3,7 +3,8 @@ import { splitLines, stripLineEnding } from "./lines";
 
 const FRONTMATTER_FENCE = "---";
 const FRONTMATTER_CLOSERS = [FRONTMATTER_FENCE, "..."];
-const MINDMAP_FLAG = /^mindmap:\s*true\s*$/;
+/** What YAML reads as boolean true here (and so what Obsidian's metadata cache reports), with an optional trailing comment. */
+const MINDMAP_FLAG = /^mindmap:[ \t]*(true|True|TRUE)([ \t]+#.*|[ \t]*)$/;
 const MINDMAP_KEY = /^mindmap\s*:/;
 const MINDMAP_FLAG_LINE = "mindmap: true";
 

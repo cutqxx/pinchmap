@@ -1,0 +1,51 @@
+name: Release Obsidian plugin
+
+# Publishes a GitHub release named after manifest.json's version, so the
+# plugin can be installed on iPad/iPhone with BRAT. Pushing again with the
+# same version replaces the release assets; bump the version for BRAT to
+# offer an update.
+on:
+  push:
+    branches:
+      - "claude/**"
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./manifest.json').version")
+          if gh release view "$version" >/dev/null 2>&1; then
+            gh release upload "$version" main.js manifest.json styles.css --clobber
+          else
+            gh release create "$version" main.js manifest.json styles.css \
+              --target "$GITHUB_SHA" \
+              --title "Pinchmap $version" \
+              --notes "Test build for BRAT. In BRAT: Add beta plugin → ${{ github.repository }}."
+          fi

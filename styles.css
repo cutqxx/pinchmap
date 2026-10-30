@@ -1,0 +1,288 @@
+.pinchmap-view.view-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.pinchmap-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  background-color: var(--background-primary);
+}
+
+.pinchmap-canvas:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.pinchmap-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.pinchmap-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pinchmap-edge {
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-width: 2px;
+}
+
+.pinchmap-node {
+  --pinchmap-node-padding-block: 6px;
+  --pinchmap-node-padding-inline: 10px;
+  position: absolute;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 300px;
+  min-width: 2em;
+  min-height: calc(1.5em + 2 * var(--pinchmap-node-padding-block));
+  padding: var(--pinchmap-node-padding-block) var(--pinchmap-node-padding-inline);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background-color: var(--background-secondary);
+  color: var(--text-normal);
+  font-size: var(--font-text-size, 16px);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.pinchmap-node.is-editing .pinchmap-node-text {
+  visibility: hidden;
+}
+
+.pinchmap-node-input {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: var(--pinchmap-node-padding-block) var(--pinchmap-node-padding-inline);
+  border: none;
+  border-radius: var(--radius-m);
+  outline: 2px solid var(--interactive-accent);
+  background-color: var(--background-primary);
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  overflow: hidden;
+  resize: none;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+
+.pinchmap-node.is-root {
+  border-width: 2px;
+  border-color: var(--interactive-accent);
+  font-size: calc(var(--font-text-size, 16px) * 1.25);
+  font-weight: var(--font-semibold, 600);
+}
+
+.pinchmap-node.is-selected {
+  z-index: 1;
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.pinchmap-node.pinchmap-node--drop-target {
+  z-index: 1;
+  background-color: var(--background-modifier-hover);
+  outline: 2px dashed var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.pinchmap-node[data-pinchmap-color],
+.pinchmap-edge[data-pinchmap-color] {
+  --pinchmap-color: var(--interactive-accent);
+}
+
+.pinchmap-node[data-pinchmap-color="red"],
+.pinchmap-edge[data-pinchmap-color="red"] {
+  --pinchmap-color: var(--color-red);
+}
+
+.pinchmap-node[data-pinchmap-color="orange"],
+.pinchmap-edge[data-pinchmap-color="orange"] {
+  --pinchmap-color: var(--color-orange);
+}
+
+.pinchmap-node[data-pinchmap-color="yellow"],
+.pinchmap-edge[data-pinchmap-color="yellow"] {
+  --pinchmap-color: var(--color-yellow);
+}
+
+.pinchmap-node[data-pinchmap-color="green"],
+.pinchmap-edge[data-pinchmap-color="green"] {
+  --pinchmap-color: var(--color-green);
+}
+
+.pinchmap-node[data-pinchmap-color="cyan"],
+.pinchmap-edge[data-pinchmap-color="cyan"] {
+  --pinchmap-color: var(--color-cyan);
+}
+
+.pinchmap-node[data-pinchmap-color="purple"],
+.pinchmap-edge[data-pinchmap-color="purple"] {
+  --pinchmap-color: var(--color-purple);
+}
+
+.pinchmap-node[data-pinchmap-color] {
+  border-color: var(--pinchmap-color);
+}
+
+.pinchmap-edge[data-pinchmap-color] {
+  stroke: var(--pinchmap-color);
+}
+
+.pinchmap-add-button {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  transform: scale(calc(1 / var(--pinchmap-zoom, 1)));
+}
+
+.pinchmap-add-button::after {
+  content: "+";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-size: 16px;
+  font-weight: var(--font-semibold, 600);
+  line-height: 1;
+}
+
+.pinchmap-add-button.is-child {
+  top: 50%;
+  left: 100%;
+  margin-top: -22px;
+  transform-origin: 0 50%;
+}
+
+.pinchmap-add-button.is-sibling {
+  top: 100%;
+  left: 50%;
+  margin-left: -22px;
+  transform-origin: 50% 0;
+}
+
+
+.pinchmap-done-bar {
+  position: fixed;
+  z-index: var(--layer-popover, 50);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 var(--size-4-3, 12px);
+  border-top: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+}
+
+.pinchmap-done-bar[hidden] {
+  display: none;
+}
+
+.pinchmap-done-button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--interactive-accent);
+  background: transparent;
+  box-shadow: none;
+  font-weight: var(--font-semibold, 600);
+}
+
+.view-action.pinchmap-history-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.view-action.pinchmap-history-action[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pinchmap-node.is-hidden,
+.pinchmap-edge.is-hidden {
+  display: none;
+}
+
+.pinchmap-collapse-toggle {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  cursor: pointer;
+  transform: scale(calc(1 / var(--pinchmap-zoom, 1)));
+}
+
+.pinchmap-node.is-left > .pinchmap-collapse-toggle {
+  left: 0;
+}
+
+.pinchmap-node.has-collapse-toggle:not(.is-left) > .pinchmap-add-button.is-child {
+  margin-left: calc(22px / var(--pinchmap-zoom, 1));
+}
+
+.pinchmap-collapse-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 9px;
+  background-color: var(--background-primary);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.pinchmap-collapse-toggle:hover .pinchmap-collapse-mark {
+  border-color: var(--interactive-accent);
+  color: var(--text-normal);
+}
+
+.pinchmap-marquee {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--interactive-accent);
+  background-color: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  pointer-events: none;
+}

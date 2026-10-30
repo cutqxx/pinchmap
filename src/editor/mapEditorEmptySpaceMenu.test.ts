@@ -47,7 +47,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function createEditor(options: { addNodeLabel?: string; longPressSeconds?: number }): MapEditor {
+function createEditor(options: {
+  addNodeLabel?: string;
+  resetMapLayoutLabel?: string;
+  longPressSeconds?: number;
+}): MapEditor {
   const created = new MapEditor({
     container,
     host,
@@ -165,24 +169,24 @@ function lastRootId(): string {
 }
 
 describe("MapEditor menu on empty space", () => {
-  it("offers a single add-node item after a long press on empty canvas", () => {
+  it("offers the add-node and reset-map items after a long press on empty canvas", () => {
     openMap(SAMPLE);
 
     longPressAt({ x: 140, y: 240 });
 
     expect(host.showMenu).toHaveBeenCalledTimes(1);
-    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Add node"]);
+    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Add node", "Reset map to auto-layout"]);
   });
 
-  it("uses the configured add-node label", () => {
+  it("uses the configured menu labels", () => {
     editor.destroy();
     container.replaceChildren();
-    editor = createEditor({ addNodeLabel: "Добавить ноду" });
+    editor = createEditor({ addNodeLabel: "Добавить ноду", resetMapLayoutLabel: "Вернуть карту в автораскладку" });
     openMap(SAMPLE);
 
     longPressAt({ x: 140, y: 240 });
 
-    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Добавить ноду"]);
+    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Добавить ноду", "Вернуть карту в автораскладку"]);
   });
 
   it("shows the menu at the pressed screen point", () => {
@@ -198,7 +202,7 @@ describe("MapEditor menu on empty space", () => {
 
     rightClickAt({ x: 140, y: 240 });
 
-    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Add node"]);
+    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Add node", "Reset map to auto-layout"]);
     expect(offeredMenu().at).toEqual({ x: 150, y: 260 });
   });
 
@@ -462,5 +466,62 @@ describe("MapEditor after destroy", () => {
     editor.destroy();
 
     expect(() => editor.destroy()).not.toThrow();
+  });
+});
+
+describe("MapEditor reset-map item on empty space", () => {
+  const MOVED = buildMindMap([
+    { id: "r1", text: "Root", parentId: null, state: { x: 300, y: 40 } },
+    { id: "a", text: "A", parentId: "r1", state: { x: 15, y: -30, color: "red" } },
+    { id: "b", text: "B", parentId: "a", state: { x: 4, y: 9 } },
+    { id: "r2", text: "Second root", parentId: null, state: { x: -80, y: 500 } },
+  ]);
+
+  function chooseResetMapItem(): void {
+    offeredMenu().items[1]?.onSelect();
+    flushFrames();
+  }
+
+  it("drops every manual position below the roots and keeps root positions and other state", () => {
+    openMap(MOVED);
+
+    rightClickAt({ x: 900, y: 900 });
+    chooseResetMapItem();
+
+    expect(getNode(editor.getMap(), "a").state).toEqual({ color: "red" });
+    expect(getNode(editor.getMap(), "b").state).toBeUndefined();
+    expect(getNode(editor.getMap(), "r1").state).toEqual({ x: 300, y: 40 });
+    expect(getNode(editor.getMap(), "r2").state).toEqual({ x: -80, y: 500 });
+    expect(host.onMapChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("works the same from a long press on touch", () => {
+    openMap(MOVED);
+
+    longPressAt({ x: 900, y: 900 });
+    chooseResetMapItem();
+
+    expect(getNode(editor.getMap(), "b").state).toBeUndefined();
+  });
+
+  it("is undone in one step", () => {
+    openMap(MOVED);
+    rightClickAt({ x: 900, y: 900 });
+    chooseResetMapItem();
+
+    editor.undo();
+    flushFrames();
+
+    expect(editor.getMap()).toEqual(MOVED);
+  });
+
+  it("reports no change when nothing below the roots was moved", () => {
+    openMap(SAMPLE);
+
+    rightClickAt({ x: 900, y: 900 });
+    chooseResetMapItem();
+
+    expect(editor.getMap()).toBe(SAMPLE);
+    expect(host.onMapChanged).not.toHaveBeenCalled();
   });
 });

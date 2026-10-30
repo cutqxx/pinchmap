@@ -51,6 +51,7 @@ export interface MapEditorOptions {
   readonly visibleArea?: VisibleAreaSource;
   readonly doneLabel?: string;
   readonly addNodeLabel?: string;
+  readonly resetMapLayoutLabel?: string;
   readonly nodeMenuLabels?: NodeMenuLabels;
   readonly longPressSeconds?: number;
   readonly clipboard?: BranchClipboard;
@@ -90,6 +91,7 @@ export class MapEditor {
     visibleArea,
     doneLabel,
     addNodeLabel,
+    resetMapLayoutLabel,
     nodeMenuLabels,
     longPressSeconds,
     clipboard,
@@ -114,7 +116,10 @@ export class MapEditor {
     this.nodeEdits = this.createNodeEdits();
     this.textEditing = this.createTextEditing();
     this.branchTransfer = this.createBranchTransfer(clipboard ?? UNAVAILABLE_BRANCH_CLIPBOARD);
-    this.emptySpaceMenu = this.createEmptySpaceMenu(addNodeLabel ?? "Add node");
+    this.emptySpaceMenu = this.createEmptySpaceMenu(
+      addNodeLabel ?? "Add node",
+      resetMapLayoutLabel ?? "Reset map to auto-layout",
+    );
     this.nodeMenu = this.createNodeMenu(nodeMenuLabels ?? DEFAULT_NODE_MENU_LABELS);
     this.nodeDrag = this.createNodeDrag();
     this.marqueeSelection = this.createMarqueeSelection();
@@ -281,14 +286,16 @@ export class MapEditor {
     });
   }
 
-  private createEmptySpaceMenu(addNodeLabel: string): EmptySpaceMenu {
+  private createEmptySpaceMenu(addNodeLabel: string, resetMapLayoutLabel: string): EmptySpaceMenu {
     return new EmptySpaceMenu({
       canvasElement: this.renderer.canvasElement,
       addNodeLabel,
+      resetMapLayoutLabel,
       getCamera: () => this.camera.getCamera(),
       showMenu: (items, at) => this.host.showMenu(items, at),
       commitPendingEdit: () => this.commitPendingEdit(),
       createNode: (creation) => this.nodeEdits.createNode(creation),
+      resetMapLayout: () => this.resetMapLayout(),
     });
   }
 

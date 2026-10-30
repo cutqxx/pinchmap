@@ -80,6 +80,7 @@ Manual install: download `main.js`, `manifest.json` and `styles.css` from the [l
 | Finish editing | **Done** button, tap outside | `Esc`, Ctrl/Cmd + `Enter`, click outside |
 | Add child / sibling | **+** buttons | `Tab` / `Enter`, **+** buttons |
 | Add root | double-tap empty space, or long-press empty space → **Add node** | double-click empty space, or right-click empty space → **Add node** |
+| Reset map to auto-layout | long-press empty space → **Reset map to auto-layout** | right-click empty space → **Reset map to auto-layout**, or the command palette |
 | Node menu | long-press node | right-click node |
 | Move / reparent | drag node (drop on another node to reparent) | same with mouse |
 | Collapse / expand | tap the toggle | click the toggle, Ctrl/Cmd + `/` |

@@ -214,12 +214,12 @@ describe("MapEditor node menu opening", () => {
     expect(host.showMenu).not.toHaveBeenCalled();
   });
 
-  it("still offers only the add-node item on empty canvas", () => {
+  it("still offers the empty-space items on empty canvas", () => {
     openMap(SAMPLE);
 
     rightClickOn(canvas(), { x: 600, y: 600 });
 
-    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Добавить ноду"]);
+    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Добавить ноду", "Reset map to auto-layout"]);
   });
 
   it("still offers the add-node item after a long press on empty canvas", () => {
@@ -227,7 +227,7 @@ describe("MapEditor node menu opening", () => {
 
     longPressOn(canvas(), { x: 600, y: 600 });
 
-    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Добавить ноду"]);
+    expect(offeredMenu().items.map((item) => item.label)).toEqual(["Добавить ноду", "Reset map to auto-layout"]);
   });
 });
 

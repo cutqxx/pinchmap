@@ -24,6 +24,7 @@ beforeEach(() => {
   menu = new EmptySpaceMenu({
     canvasElement,
     addNodeLabel: "Add node",
+    resetMapLayoutLabel: "Reset map to auto-layout",
     getCamera: () => camera,
     showMenu: (items, at) => {
       calls.push("showMenu");
@@ -34,6 +35,7 @@ beforeEach(() => {
       calls.push("create");
       created.push(command);
     },
+    resetMapLayout: () => void calls.push("resetMapLayout"),
   });
 });
 
@@ -45,11 +47,11 @@ function createdRootPosition(index = 0): ReturnType<typeof readRootPosition> {
 }
 
 describe("EmptySpaceMenu.requestMenu", () => {
-  it("shows one item with the add-node label at the client point of a canvas press", () => {
+  it("shows the add-node and reset-map items at the client point of a canvas press", () => {
     menu.requestMenu(CANVAS, { x: 140, y: 240 });
 
     expect(shownMenus).toHaveLength(1);
-    expect(shownMenus[0]?.items.map((item) => item.label)).toEqual(["Add node"]);
+    expect(shownMenus[0]?.items.map((item) => item.label)).toEqual(["Add node", "Reset map to auto-layout"]);
     expect(shownMenus[0]?.at).toEqual({ x: 150, y: 260 });
   });
 
@@ -118,16 +120,37 @@ describe("EmptySpaceMenu.addRootAt", () => {
   });
 });
 
+describe("EmptySpaceMenu reset-map item", () => {
+  it("commits the pending text edit and then resets the map layout", () => {
+    menu.requestMenu(CANVAS, { x: 140, y: 240 });
+    calls = [];
+
+    shownMenus[0]?.items[1]?.onSelect();
+
+    expect(calls).toEqual(["commit", "resetMapLayout"]);
+  });
+
+  it("creates no node", () => {
+    menu.requestMenu(CANVAS, { x: 140, y: 240 });
+
+    shownMenus[0]?.items[1]?.onSelect();
+
+    expect(created).toEqual([]);
+  });
+});
+
 describe("EmptySpaceMenu.close", () => {
   function menuWithHandle(): { menu: EmptySpaceMenu; closed: () => number } {
     let closes = 0;
     const withHandle = new EmptySpaceMenu({
       canvasElement: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } as HTMLElement,
       addNodeLabel: "Add node",
+      resetMapLayoutLabel: "Reset map to auto-layout",
       getCamera: () => camera,
       showMenu: () => ({ close: () => void (closes += 1) }),
       commitPendingEdit: () => undefined,
       createNode: () => undefined,
+      resetMapLayout: () => undefined,
     });
     return { menu: withHandle, closed: () => closes };
   }

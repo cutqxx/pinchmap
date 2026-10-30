@@ -18,10 +18,12 @@ export interface MenuHandle {
 export interface EmptySpaceMenuDeps {
   readonly canvasElement: HTMLElement;
   readonly addNodeLabel: string;
+  readonly resetMapLayoutLabel: string;
   getCamera(): Camera;
   showMenu(items: readonly MenuItem[], at: ScreenPoint): MenuHandle | void;
   commitPendingEdit(): void;
   createNode(command: (map: MindMap, id: NodeId) => MindMap): void;
+  resetMapLayout(): void;
 }
 
 export class EmptySpaceMenu {
@@ -33,7 +35,10 @@ export class EmptySpaceMenu {
     if (target.kind !== "canvas") return;
     const mapPoint = this.mapPointAt(point);
     this.openMenu = this.deps.showMenu(
-      [{ label: this.deps.addNodeLabel, onSelect: () => this.addRootAtMapPoint(mapPoint) }],
+      [
+        { label: this.deps.addNodeLabel, onSelect: () => this.addRootAtMapPoint(mapPoint) },
+        { label: this.deps.resetMapLayoutLabel, onSelect: () => this.resetMapLayout() },
+      ],
       this.clientPointOf(point),
     ) ?? null;
   }
@@ -50,6 +55,11 @@ export class EmptySpaceMenu {
   private addRootAtMapPoint(position: RootPosition): void {
     this.deps.commitPendingEdit();
     this.deps.createNode((map, id) => addRoot(map, { id, text: "", position }));
+  }
+
+  private resetMapLayout(): void {
+    this.deps.commitPendingEdit();
+    this.deps.resetMapLayout();
   }
 
   private mapPointAt(point: ScreenPoint): RootPosition {

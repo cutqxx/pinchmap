@@ -52,6 +52,7 @@ export class MapView extends TextFileView {
       visibleArea: createVisibleAreaSource(this.contentEl.ownerDocument.defaultView ?? window),
       doneLabel: t("done"),
       addNodeLabel: t("addNode"),
+      resetMapLayoutLabel: t("resetMapLayoutCommand"),
       nodeMenuLabels: {
         addChild: t("addChild"), addSibling: t("addSibling"),
         color: t("color"), noColor: t("noColor"),

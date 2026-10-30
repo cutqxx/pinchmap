@@ -10,7 +10,7 @@ const MAP = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },
 ]);
-const LABELS: NodeMenuLabels = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS: NodeMenuLabels = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 const NODE_A: HitTarget = { kind: "node", nodeId: "a" };
 
 let calls: string[];
@@ -23,6 +23,7 @@ beforeEach(() => {
   actions = {
     addChildTo: (id) => void calls.push(`addChild:${id}`),
     addSiblingTo: (id) => void calls.push(`addSibling:${id}`),
+    toggleCollapse: (id) => void calls.push(`toggleCollapse:${id}`),
     resetNodeLayout: (id) => void calls.push(`reset:${id}`),
     deleteNode: (id) => void calls.push(`delete:${id}`),
   };
@@ -36,7 +37,7 @@ describe("nodeMenuItems", () => {
   });
 
   it("uses whatever labels are injected", () => {
-    const items = nodeMenuItems(MAP, "a", { addChild: "x", addSibling: "y", resetLayout: "r", delete: "z" }, actions);
+    const items = nodeMenuItems(MAP, "a", { addChild: "x", addSibling: "y", collapse: "c", expand: "e", resetLayout: "r", delete: "z" }, actions);
 
     expect(items.map((item) => item.label)).toEqual(["x", "y", "z"]);
   });
@@ -73,6 +74,44 @@ function newMenu(map = MAP): NodeMenu {
     selectNode: (id: NodeId) => void calls.push(`select:${id}`),
   });
 }
+
+describe("nodeMenuItems collapse item", () => {
+  const PARENT = buildMindMap([
+    { id: "r1", text: "Root", parentId: null },
+    { id: "a", text: "A", parentId: "r1", state: { x: 5, y: 5 } },
+    { id: "a1", text: "A1", parentId: "a" },
+  ]);
+  const COLLAPSED_PARENT = buildMindMap([
+    { id: "r1", text: "Root", parentId: null },
+    { id: "a", text: "A", parentId: "r1", state: { x: 5, y: 5, collapsed: true } },
+    { id: "a1", text: "A1", parentId: "a" },
+  ]);
+
+  it("offers Collapse for an expanded node with children, between sibling and reset items", () => {
+    const labels = nodeMenuItems(PARENT, "a", LABELS, actions).map((item) => item.label);
+
+    expect(labels).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Свернуть", "Сброс", "Удалить"]);
+  });
+
+  it("offers Expand instead of Collapse for a collapsed node", () => {
+    const labels = nodeMenuItems(COLLAPSED_PARENT, "a", LABELS, actions).map((item) => item.label);
+
+    expect(labels).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Развернуть", "Сброс", "Удалить"]);
+  });
+
+  it("offers no collapse item for a node without children", () => {
+    const labels = nodeMenuItems(PARENT, "a1", LABELS, actions).map((item) => item.label);
+
+    expect(labels).not.toContain("Свернуть");
+    expect(labels).not.toContain("Развернуть");
+  });
+
+  it("toggles the node when the collapse item is chosen", () => {
+    nodeMenuItems(PARENT, "a", LABELS, actions)[2]?.onSelect();
+
+    expect(calls).toEqual(["toggleCollapse:a"]);
+  });
+});
 
 describe("NodeMenu", () => {
   it("commits a pending edit, then selects the node, then shows the menu", () => {

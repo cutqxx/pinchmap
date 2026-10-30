@@ -1,7 +1,7 @@
-import { History, addChild, addSibling, deleteBranch, resetMapLayout, resetNodeLayout } from "../commands";
+import { History, addChild, addSibling, deleteBranch, resetMapLayout, resetNodeLayout, toggleNodeCollapsed } from "../commands";
 import { chooseSideForNewBranch, positionBelowRootTree } from "../layout";
 import type { LayoutResult, Size } from "../layout";
-import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, withSidesResolved } from "../model";
+import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, visibleStandIn, withSidesResolved } from "../model";
 import type { MindMap, NodeId, RootPosition, Side } from "../model";
 import { selectionAfterDelete } from "./selection";
 import type { Selection } from "./selection";
@@ -124,10 +124,28 @@ export class NodeEdits {
     this.deps.scheduleFrame();
   }
 
+  toggleCollapseOfSelection(): void {
+    const selectedId = this.deps.selection.current;
+    if (selectedId !== null) this.toggleCollapseOf(selectedId);
+  }
+
+  toggleCollapseOf(nodeId: NodeId): void {
+    if (!this.hasNode(nodeId)) return;
+    this.applyEdit((map) => toggleNodeCollapsed(map, { nodeId }));
+    this.moveSelectionOutOfHiddenBranch();
+    this.deps.scheduleFrame();
+  }
+
+  private moveSelectionOutOfHiddenBranch(): void {
+    const selectedId = this.deps.selection.current;
+    if (selectedId !== null) this.deps.selection.set(visibleStandIn(this.displayMap, selectedId));
+  }
+
   private showRestoredMap(restored: MindMap): void {
     const selectedId = this.deps.selection.current;
     this.displayMap = restored;
-    this.deps.selection.select(selectedId !== null && restored.nodes.has(selectedId) ? selectedId : null);
+    const stillSelectedId = selectedId !== null && restored.nodes.has(selectedId) ? visibleStandIn(restored, selectedId) : null;
+    this.deps.selection.select(stillSelectedId);
     this.notifyHistoryChanged();
     this.deps.onMapChanged();
   }

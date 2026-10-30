@@ -1,6 +1,6 @@
 {
 	"name": "pinchmap",
-	"version": "0.1.8",
+	"version": "0.1.9",
 	"description": "Mind maps for Obsidian, touch and mouse first-class",
 	"main": "main.js",
 	"private": true,

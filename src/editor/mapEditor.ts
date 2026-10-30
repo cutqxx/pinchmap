@@ -261,6 +261,7 @@ export class MapEditor {
       actions: {
         addChildTo: (nodeId) => this.nodeEdits.addChildTo(nodeId),
         addSiblingTo: (nodeId) => this.nodeEdits.addSiblingTo(nodeId),
+        toggleCollapse: (nodeId) => this.nodeEdits.toggleCollapseOf(nodeId),
         resetNodeLayout: (nodeId) => this.nodeEdits.resetNodeLayoutOf(nodeId),
         deleteNode: (nodeId) => this.deleteNodeAndFocusCanvas(nodeId),
       },
@@ -329,6 +330,8 @@ export class MapEditor {
         return this.nodeDrag.end();
       case "nodeDragCancel":
         return this.nodeDrag.cancel();
+      case "toggleCollapse":
+        return this.nodeEdits.toggleCollapseOfSelection();
       case "addChild":
         return this.nodeEdits.addChildToSelection();
       case "addSibling":
@@ -360,6 +363,7 @@ export class MapEditor {
         return this.nodeMenu.requestMenu(target, point);
       case "add-child":
       case "add-sibling":
+      case "collapse-toggle":
         return;
     }
   }
@@ -374,7 +378,14 @@ export class MapEditor {
         return this.nodeEdits.addChildTo(target.nodeId);
       case "add-sibling":
         return this.nodeEdits.addSiblingTo(target.nodeId);
+      case "collapse-toggle":
+        return this.toggleCollapseFromIndicator(target.nodeId);
     }
+  }
+
+  private toggleCollapseFromIndicator(nodeId: NodeId): void {
+    this.selection.select(nodeId);
+    this.nodeEdits.toggleCollapseOf(nodeId);
   }
 
   private handleDoubleTap(target: HitTarget, point: ScreenPoint): void {

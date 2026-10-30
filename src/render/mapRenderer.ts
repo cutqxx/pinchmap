@@ -1,6 +1,9 @@
 import type { LayoutResult, Point, Size } from "../layout";
+import { listHiddenNodeIds } from "../model";
 import type { MapNode, MindMap, NodeId } from "../model";
 import type { Camera } from "../viewport";
+import { DEFAULT_COLLAPSE_TOGGLE_LABELS, syncCollapseToggle } from "./collapseToggle";
+import type { CollapseToggleLabels } from "./collapseToggle";
 import { edgePath } from "./edgePath";
 
 export interface RenderUi {
@@ -12,6 +15,8 @@ export interface RenderUi {
 export interface AddButtonLabels {
   readonly addChild: string;
   readonly addSibling: string;
+  readonly collapse?: string;
+  readonly expand?: string;
 }
 
 export interface MapRendererOptions {
@@ -39,9 +44,14 @@ export class MapRenderer {
   private readonly dirtyIds = new Set<NodeId>();
 
   private readonly labels: AddButtonLabels;
+  private readonly toggleLabels: CollapseToggleLabels;
 
   constructor(container: HTMLElement, { labels = DEFAULT_LABELS }: MapRendererOptions = {}) {
     this.labels = labels;
+    this.toggleLabels = {
+      collapse: labels.collapse ?? DEFAULT_COLLAPSE_TOGGLE_LABELS.collapse,
+      expand: labels.expand ?? DEFAULT_COLLAPSE_TOGGLE_LABELS.expand,
+    };
     const doc = container.ownerDocument;
     this.canvasElement = doc.createElement("div");
     this.canvasElement.className = "pinchmap-canvas";
@@ -75,9 +85,11 @@ export class MapRenderer {
 
   syncContent(map: MindMap, ui: RenderUi): void {
     this.removeStaleElements(map);
+    const hiddenIds = listHiddenNodeIds(map);
     for (const node of map.nodes.values()) {
-      this.syncNodeElement(node, ui);
+      this.syncNodeElement(node, map, ui);
       this.ensureEdgeElement(node);
+      this.syncVisibility(node.id, !hiddenIds.has(node.id));
     }
   }
 
@@ -94,6 +106,7 @@ export class MapRenderer {
       if (element === undefined) continue;
       element.style.left = `${position.x}px`;
       element.style.top = `${position.y}px`;
+      element.classList.toggle("is-left", this.isOnLeftSide(map, id, layout));
     }
     for (const node of map.nodes.values()) {
       this.placeEdge(node, layout);
@@ -118,7 +131,7 @@ export class MapRenderer {
     }
   }
 
-  private syncNodeElement(node: MapNode, ui: RenderUi): void {
+  private syncNodeElement(node: MapNode, map: MindMap, ui: RenderUi): void {
     const element = this.nodeElements.get(node.id) ?? this.createNodeElement(node.id);
     const isEditing = ui.editing?.nodeId === node.id;
     const displayedText = isEditing
@@ -135,6 +148,20 @@ export class MapRenderer {
     element.classList.toggle("is-selected", isSelected);
     element.classList.toggle("pinchmap-node--drop-target", ui.dropTargetId === node.id);
     this.syncAddButtons(element, node.id, isSelected && !isEditing);
+    syncCollapseToggle(element, node, map, this.toggleLabels);
+  }
+
+  private syncVisibility(id: NodeId, isVisible: boolean): void {
+    this.nodeElements.get(id)?.classList.toggle("is-hidden", !isVisible);
+    this.edgeElements.get(id)?.classList.toggle("is-hidden", !isVisible);
+  }
+
+  /** A node sits on the left when it lies left of its parent; a root when all its branches grow leftwards. */
+  private isOnLeftSide(map: MindMap, id: NodeId, layout: LayoutResult): boolean {
+    const node = map.nodes.get(id);
+    if (node === undefined) return false;
+    if (node.parentId !== null) return this.isLeftOfParent(id, node.parentId, layout);
+    return node.childIds.length > 0 && node.childIds.every((childId) => layout.sides.get(childId) === "left");
   }
 
   private syncAddButtons(element: HTMLElement, id: NodeId, shouldShow: boolean): void {

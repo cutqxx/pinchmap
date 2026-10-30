@@ -356,3 +356,36 @@ describe("node drag pointer point", () => {
     expect(send("move", { kind: "touch", x: 100, y: 100 })).toEqual([{ type: "nodeDrag", dx: 0, dy: 0, point: { x: 100, y: 100 } }]);
   });
 });
+
+describe("collapse toggle indicator", () => {
+  const TOGGLE: HitTarget = { kind: "collapse-toggle", nodeId: "a" };
+
+  it("reports a tap on the indicator", () => {
+    send("down", { target: TOGGLE });
+
+    expect(send("up", { target: TOGGLE, time: 50 })).toEqual([{ type: "tap", target: TOGGLE }]);
+  });
+
+  it("reports a mouse click on the indicator as a tap", () => {
+    send("down", { kind: "mouse", target: TOGGLE });
+
+    expect(send("up", { kind: "mouse", target: TOGGLE, time: 50 })).toEqual([{ type: "tap", target: TOGGLE }]);
+  });
+
+  it.each([["touch"], ["mouse"]] as const)("never starts a node drag from the indicator with %s", (kind) => {
+    send("down", { kind, target: TOGGLE });
+
+    const intents = send("move", { kind, target: TOGGLE, x: 200, y: 200 });
+
+    expect(types(intents)).not.toContain("nodeDragStart");
+    expect(types(intents)).not.toContain("nodeDragMove");
+  });
+
+  it("does not open a context menu by long press on the indicator", () => {
+    send("down", { target: TOGGLE });
+
+    vi.advanceTimersByTime(2000);
+
+    expect(types(emitted)).not.toContain("longPress");
+  });
+});

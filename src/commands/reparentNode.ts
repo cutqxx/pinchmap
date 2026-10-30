@@ -1,5 +1,6 @@
 import { getNode, withMovedBranch, withSide, withoutManualPosition } from "../model";
 import type { MindMap, NodeId, Side } from "../model";
+import { setNodeCollapsed } from "./collapse";
 
 export interface ReparentNodeArgs {
   readonly nodeId: NodeId;
@@ -11,7 +12,9 @@ export interface ReparentNodeArgs {
 export function reparentNode(map: MindMap, { nodeId, newParentId, side = "right" }: ReparentNodeArgs): MindMap {
   const isFirstLevelBranch = getNode(map, newParentId).parentId === null;
   const state = withoutManualPosition(getNode(map, nodeId).state);
-  return withMovedBranch(map, nodeId, newParentId, withSide(state, isFirstLevelBranch ? side : "right"));
+  const moved = withMovedBranch(map, nodeId, newParentId, withSide(state, isFirstLevelBranch ? side : "right"));
+  // A collapsed target opens up: otherwise the dropped branch would vanish from view.
+  return moved === map ? map : setNodeCollapsed(moved, { nodeId: newParentId, isCollapsed: false });
 }
 
 /** Drops x/y of nodes whose parent differs from the previous map: a stale offset or absolute position would misplace them. */

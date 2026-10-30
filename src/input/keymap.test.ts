@@ -214,3 +214,35 @@ describe("keyToIntent zoom shortcuts", () => {
     expect(keyToIntent(chord(key, { ctrlKey: true }), "editing")).toBeNull();
   });
 });
+
+describe("keyToIntent collapse shortcut", () => {
+  const TOGGLE = { type: "toggleCollapse" };
+
+  it.each(["ctrlKey", "metaKey"] as const)("maps %s with / to toggle collapse", (modifier) => {
+    expect(keyToIntent(chord("/", { [modifier]: true }), "navigate")).toEqual(TOGGLE);
+  });
+
+  it.each(["Slash", "NumpadDivide"])("falls back to code %s when the key is not printable", (code) => {
+    expect(keyToIntent(chord("Unidentified", { ctrlKey: true, code }), "navigate")).toEqual(TOGGLE);
+  });
+
+  it("maps a Russian-layout Ctrl+Shift+7 which types / to toggle collapse", () => {
+    expect(keyToIntent(chord("/", { ctrlKey: true, shiftKey: true, code: "Digit7" }), "navigate")).toEqual(TOGGLE);
+  });
+
+  it("does not toggle for / without Ctrl or Cmd", () => {
+    expect(keyToIntent(chord("/"), "navigate")).toBeNull();
+  });
+
+  it("does not toggle for Ctrl+Alt+/", () => {
+    expect(keyToIntent(chord("/", { ctrlKey: true, altKey: true }), "navigate")).toBeNull();
+  });
+
+  it("does not toggle for the ? typed by Ctrl+Shift+/ on a US layout", () => {
+    expect(keyToIntent(chord("?", { ctrlKey: true, shiftKey: true, code: "Slash" }), "navigate")).toBeNull();
+  });
+
+  it("does not toggle while editing so the text keeps the keystroke", () => {
+    expect(keyToIntent(chord("/", { ctrlKey: true }), "editing")).toBeNull();
+  });
+});

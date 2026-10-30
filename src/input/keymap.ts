@@ -27,13 +27,13 @@ const NAVIGATE_INTENTS: ReadonlyMap<string, Intent> = new Map<string, Intent>([
   ["ArrowRight", { type: "navigate", direction: "right" }],
 ]);
 
-interface ZoomShortcut {
+interface CommandShortcut {
   readonly keys: readonly string[];
   readonly codes: readonly string[];
   readonly intent: Intent;
 }
 
-const ZOOM_SHORTCUTS: readonly ZoomShortcut[] = [
+const COMMAND_SHORTCUTS: readonly CommandShortcut[] = [
   { keys: ["0"], codes: ["Digit0", "Numpad0"], intent: { type: "fitToScreen" } },
   {
     keys: ["=", "+"],
@@ -45,6 +45,7 @@ const ZOOM_SHORTCUTS: readonly ZoomShortcut[] = [
     codes: ["Minus", "NumpadSubtract"],
     intent: { type: "zoomStep", direction: "out" },
   },
+  { keys: ["/"], codes: ["Slash", "NumpadDivide"], intent: { type: "toggleCollapse" } },
 ];
 
 const PRINTABLE_ASCII = /^[\x20-\x7e]$/;
@@ -70,8 +71,8 @@ function isCommandChord({ ctrlKey, metaKey, altKey }: KeyChord): boolean {
 }
 
 function commandIntent(chord: KeyChord): Intent | null {
-  const zoomIntent = zoomShortcutIntent(chord);
-  if (zoomIntent !== null) return zoomIntent;
+  const shortcutIntent = commandShortcutIntent(chord);
+  if (shortcutIntent !== null) return shortcutIntent;
   const letter = commandLetter(chord);
   if (letter === "z")
     return chord.shiftKey ? { type: "redo" } : { type: "undo" };
@@ -86,11 +87,11 @@ function commandLetter({ key, code }: KeyChord): string {
   return (physicalLetter ?? key).toLowerCase();
 }
 
-function zoomShortcutIntent(chord: KeyChord): Intent | null {
-  return ZOOM_SHORTCUTS.find((shortcut) => matchesShortcut(chord, shortcut))?.intent ?? null;
+function commandShortcutIntent(chord: KeyChord): Intent | null {
+  return COMMAND_SHORTCUTS.find((shortcut) => matchesShortcut(chord, shortcut))?.intent ?? null;
 }
 
-function matchesShortcut({ key, code }: KeyChord, { keys, codes }: ZoomShortcut): boolean {
+function matchesShortcut({ key, code }: KeyChord, { keys, codes }: CommandShortcut): boolean {
   if (PRINTABLE_ASCII.test(key)) return keys.includes(key);
   return code !== undefined && codes.includes(code);
 }

@@ -26,3 +26,11 @@ export {
 } from "./nodeFields";
 export type { NewSiblingEntry } from "./branchEdits";
 export { withNewRoot, withNewSibling, withoutBranch, withMovedBranch } from "./branchEdits";
+export {
+  countDescendants,
+  isNodeCollapsed,
+  listHiddenNodeIds,
+  readCollapsed,
+  visibleStandIn,
+  withCollapsed,
+} from "./collapse";

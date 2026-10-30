@@ -1,11 +1,13 @@
 import type { HitTarget, ScreenPoint } from "../input";
-import { getNode, readManualPosition } from "../model";
+import { getNode, isNodeCollapsed, readManualPosition } from "../model";
 import type { MindMap, NodeId } from "../model";
 import type { MenuItem } from "./emptySpaceMenu";
 
 export interface NodeMenuLabels {
   readonly addChild: string;
   readonly addSibling: string;
+  readonly collapse: string;
+  readonly expand: string;
   readonly resetLayout: string;
   readonly delete: string;
 }
@@ -13,6 +15,8 @@ export interface NodeMenuLabels {
 export const DEFAULT_NODE_MENU_LABELS: NodeMenuLabels = {
   addChild: "Add child",
   addSibling: "Add sibling",
+  collapse: "Collapse",
+  expand: "Expand",
   resetLayout: "Reset to auto-layout",
   delete: "Delete",
 };
@@ -20,6 +24,7 @@ export const DEFAULT_NODE_MENU_LABELS: NodeMenuLabels = {
 export interface NodeMenuActions {
   addChildTo(nodeId: NodeId): void;
   addSiblingTo(nodeId: NodeId): void;
+  toggleCollapse(nodeId: NodeId): void;
   resetNodeLayout(nodeId: NodeId): void;
   deleteNode(nodeId: NodeId): void;
 }
@@ -30,10 +35,13 @@ export function nodeMenuItems(
   labels: NodeMenuLabels,
   actions: NodeMenuActions,
 ): readonly MenuItem[] {
-  const hasManualPosition = readManualPosition(getNode(map, nodeId).state) !== undefined;
+  const node = getNode(map, nodeId);
+  const hasManualPosition = readManualPosition(node.state) !== undefined;
+  const collapseLabel = isNodeCollapsed(node) ? labels.expand : labels.collapse;
   return [
     { label: labels.addChild, onSelect: () => actions.addChildTo(nodeId) },
     { label: labels.addSibling, onSelect: () => actions.addSiblingTo(nodeId) },
+    ...(node.childIds.length > 0 ? [{ label: collapseLabel, onSelect: () => actions.toggleCollapse(nodeId) }] : []),
     ...(hasManualPosition ? [{ label: labels.resetLayout, onSelect: () => actions.resetNodeLayout(nodeId) }] : []),
     { label: labels.delete, onSelect: () => actions.deleteNode(nodeId) },
   ];

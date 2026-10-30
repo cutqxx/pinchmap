@@ -720,3 +720,24 @@ describe("attachKeySource", () => {
     expect(event.defaultPrevented).toBe(false);
   });
 });
+
+describe("attachPointerSource collapse indicator", () => {
+  it("reports a collapse-toggle target with the node id", () => {
+    const node = document.createElement("div");
+    node.setAttribute("data-pinchmap-hit", "node");
+    node.setAttribute("data-node-id", "n1");
+    const toggle = document.createElement("div");
+    toggle.setAttribute("data-pinchmap-hit", "collapse-toggle");
+    toggle.setAttribute("data-node-id", "n1");
+    const mark = document.createElement("span");
+    toggle.appendChild(mark);
+    node.appendChild(toggle);
+    element.appendChild(node);
+    const samples: PointerSample[] = [];
+    attachPointerSource(element, (s) => samples.push(s));
+
+    dispatch(mark, new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "touch" }));
+
+    expect(samples[0]?.target).toEqual({ kind: "collapse-toggle", nodeId: "n1" });
+  });
+});

@@ -159,6 +159,31 @@ describe("reparentNode", () => {
     expect(reparentNode(map, { nodeId: "r", newParentId: "b2" })).toBe(map);
   });
 
+  it("expands a collapsed target so the moved branch stays in view", () => {
+    const withCollapsedA = buildMindMap([
+      { id: "r", text: "Root", parentId: null },
+      { id: "a", text: "A", parentId: "r", state: { color: "red", collapsed: true } },
+      { id: "a1", text: "A1", parentId: "a" },
+      { id: "b", text: "B", parentId: "r" },
+    ]);
+
+    const moved = reparentNode(withCollapsedA, { nodeId: "b", newParentId: "a" });
+
+    expect(getNode(moved, "a").state).toEqual({ color: "red" });
+    expect(childIds(moved, "a")).toEqual(["a1", "b"]);
+  });
+
+  it("keeps a collapsed target collapsed when the move is refused", () => {
+    const withCollapsedChild = buildMindMap([
+      { id: "r", text: "Root", parentId: null },
+      { id: "a", text: "A", parentId: "r" },
+      { id: "a1", text: "A1", parentId: "a", state: { collapsed: true } },
+      { id: "a1x", text: "A1x", parentId: "a1" },
+    ]);
+
+    expect(reparentNode(withCollapsedChild, { nodeId: "a", newParentId: "a1" })).toBe(withCollapsedChild);
+  });
+
   it("leaves the input map untouched", () => {
     reparentNode(map, { nodeId: "a", newParentId: "b" });
 

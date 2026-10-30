@@ -12,7 +12,7 @@ class FakeResizeObserver {
 }
 
 const CANVAS_OFFSET = { left: 10, top: 20 };
-const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 const SAMPLE = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },
@@ -151,7 +151,7 @@ describe("MapEditor node menu opening", () => {
   it("shows the three node items after a right click on a node", () => {
     openMap(SAMPLE);
 
-    rightClickOn(nodeElement("a"));
+    rightClickOn(nodeElement("b"));
 
     expect(host.showMenu).toHaveBeenCalledTimes(1);
     expect(offeredMenu().items.map((item) => item.label)).toEqual(NODE_LABELS);
@@ -160,7 +160,7 @@ describe("MapEditor node menu opening", () => {
   it("shows the three node items after a long press on a node", () => {
     openMap(SAMPLE);
 
-    longPressOn(nodeElement("a"));
+    longPressOn(nodeElement("b"));
 
     expect(host.showMenu).toHaveBeenCalledTimes(1);
     expect(offeredMenu().items.map((item) => item.label)).toEqual(NODE_LABELS);

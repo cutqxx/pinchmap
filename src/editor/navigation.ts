@@ -1,6 +1,6 @@
 import type { NavigationDirection } from "../input";
 import type { LayoutResult } from "../layout";
-import { getNode } from "../model";
+import { getNode, isNodeCollapsed } from "../model";
 import type { MindMap, NodeId, Side } from "../model";
 
 export type { NavigationDirection };
@@ -39,7 +39,7 @@ function horizontalTarget(
   const node = getNode(map, id);
   const side = sideOf(map, layout, id);
   if (side === undefined) return firstChildOnSide(map, layout, id, direction);
-  if (side === direction) return node.childIds[0];
+  if (side === direction) return isNodeCollapsed(node) ? undefined : node.childIds[0];
   return node.parentId ?? undefined;
 }
 
@@ -49,7 +49,9 @@ function firstChildOnSide(
   rootId: NodeId,
   side: Side,
 ): NodeId | undefined {
-  return getNode(map, rootId).childIds.find((childId) => sideOf(map, layout, childId) === side);
+  const root = getNode(map, rootId);
+  if (isNodeCollapsed(root)) return undefined;
+  return root.childIds.find((childId) => sideOf(map, layout, childId) === side);
 }
 
 function siblingIdsOf(map: MindMap, id: NodeId): readonly NodeId[] {

@@ -15,3 +15,5 @@ export type { ReparentNodeArgs } from "./reparentNode";
 export { reparentNode, clearPositionsOfReparentedNodes } from "./reparentNode";
 export type { ResetNodeLayoutArgs } from "./resetLayout";
 export { resetNodeLayout, resetMapLayout } from "./resetLayout";
+export type { SetNodeCollapsedArgs, ToggleNodeCollapsedArgs } from "./collapse";
+export { setNodeCollapsed, toggleNodeCollapsed } from "./collapse";

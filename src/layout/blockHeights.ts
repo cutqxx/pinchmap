@@ -1,4 +1,5 @@
-import { getNode } from "../model";
+import { getNode, isNodeCollapsed } from "../model";
+import type { MapNode } from "../model";
 import type { MindMap, NodeId } from "../model";
 import type { Size } from "./geometry";
 
@@ -12,12 +13,18 @@ export function measureBranchHeights(
   const blockHeights = new Map<NodeId, number>();
   const measure = (id: NodeId): void => {
     const node = getNode(map, id);
-    node.childIds.forEach(measure);
-    const childrenHeight = stackedHeight(node.childIds, blockHeights, siblingGap);
+    const shownChildIds = shownChildIdsOf(node);
+    shownChildIds.forEach(measure);
+    const childrenHeight = stackedHeight(shownChildIds, blockHeights, siblingGap);
     blockHeights.set(id, Math.max(sizeOf(id).height, childrenHeight));
   };
-  map.rootIds.forEach((rootId) => getNode(map, rootId).childIds.forEach(measure));
+  map.rootIds.forEach((rootId) => shownChildIdsOf(getNode(map, rootId)).forEach(measure));
   return blockHeights;
+}
+
+/** A collapsed node takes only its own space: its children are not part of the layout. */
+export function shownChildIdsOf(node: MapNode): readonly NodeId[] {
+  return isNodeCollapsed(node) ? [] : node.childIds;
 }
 
 export function stackedHeight(

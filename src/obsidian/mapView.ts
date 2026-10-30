@@ -52,11 +52,12 @@ export class MapView extends TextFileView {
       addNodeLabel: t("addNode"),
       nodeMenuLabels: {
         addChild: t("addChild"), addSibling: t("addSibling"),
+        collapse: t("collapse"), expand: t("expand"),
         resetLayout: t("resetNodeLayout"),
         delete: t("delete"),
       },
       longPressSeconds,
-      labels: { addChild: t("addChild"), addSibling: t("addSibling") },
+      labels: { addChild: t("addChild"), addSibling: t("addSibling"), collapse: t("collapse"), expand: t("expand") },
       host: {
         onMapChanged: () => this.autosave.schedule(),
         onHistoryChanged: (canUndo, canRedo) => this.showHistoryAvailability(canUndo, canRedo),

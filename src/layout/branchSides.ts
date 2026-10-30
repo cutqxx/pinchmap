@@ -1,4 +1,4 @@
-import { getNode, readSide } from "../model";
+import { getNode, isNodeCollapsed, readSide } from "../model";
 import type { MapNode, MindMap, NodeId, Side } from "../model";
 import { stackedHeight } from "./blockHeights";
 
@@ -22,7 +22,8 @@ export function resolveRootSides(
   blockHeights: ReadonlyMap<NodeId, number>,
   siblingGap: number,
 ): RootSides {
-  const branches = getNode(map, rootId).childIds.map((id) => getNode(map, id));
+  const root = getNode(map, rootId);
+  const branches = root.childIds.map((id) => getNode(map, id));
   const stacks: Record<Side, NodeId[]> = { left: [], right: [] };
   const sides = new Map<NodeId, Side>();
   const assign = (branch: MapNode, side: Side): void => {
@@ -35,5 +36,6 @@ export function resolveRootSides(
   branches
     .filter((branch) => branch.isSidePending === true)
     .forEach((branch) => assign(branch, pickSideForNewBranch({ left: heightOf("left"), right: heightOf("right") })));
+  if (isNodeCollapsed(root)) return { sides, heights: { left: 0, right: 0 } };
   return { sides, heights: { left: heightOf("left"), right: heightOf("right") } };
 }

@@ -1,6 +1,6 @@
 import { getNode } from "../model";
 import type { MindMap, NodeId, Side } from "../model";
-import { stackedHeight } from "./blockHeights";
+import { shownChildIdsOf, stackedHeight } from "./blockHeights";
 import type { SizeOf } from "./blockHeights";
 import type { LayoutSpacing } from "./spacing";
 import type { Point } from "./geometry";
@@ -18,7 +18,7 @@ export function placeRootTree(context: PlacementContext, rootId: NodeId, x: numb
   const { map, sides, sizeOf, spacing } = context;
   const blockHeight = blockHeightOf(context, rootId);
   context.positions.set(rootId, { x, y: top + (blockHeight - sizeOf(rootId).height) / 2 });
-  const branchIds = getNode(map, rootId).childIds;
+  const branchIds = shownChildIdsOf(getNode(map, rootId));
   const branchesOn = (side: Side): NodeId[] => branchIds.filter((id) => sides.get(id) === side);
   placeBranches(context, branchesOn("right"), "right", x + sizeOf(rootId).width + spacing.levelGap, top, blockHeight);
   placeBranches(context, branchesOn("left"), "left", x - spacing.levelGap, top, blockHeight);
@@ -31,7 +31,7 @@ function placeSubtree(context: PlacementContext, id: NodeId, attachX: number, to
   const x = side === "right" ? attachX : attachX - width;
   context.positions.set(id, { x, y: top + (blockHeight - height) / 2 });
   const childAttachX = side === "right" ? x + width + spacing.levelGap : x - spacing.levelGap;
-  placeBranches(context, getNode(context.map, id).childIds, side, childAttachX, top, blockHeight);
+  placeBranches(context, shownChildIdsOf(getNode(context.map, id)), side, childAttachX, top, blockHeight);
 }
 
 function placeBranches(

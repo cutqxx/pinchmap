@@ -16,7 +16,7 @@ export function hitTargetOf(eventTarget: EventTarget | null): HitTarget {
   const hitElement = closestElement(eventTarget, HIT_SELECTOR);
   const nodeId = hitElement?.getAttribute("data-node-id");
   const kind = hitElement?.getAttribute("data-pinchmap-hit");
-  if (nodeId && (kind === "node" || kind === "add-child" || kind === "add-sibling")) {
+  if (nodeId && (kind === "node" || kind === "add-child" || kind === "add-sibling" || kind === "collapse-toggle")) {
     return { kind, nodeId };
   }
   return { kind: "canvas" };

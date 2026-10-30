@@ -222,3 +222,37 @@ describe("navigate from a root horizontally", () => {
     expect(press([node("r", null)], "r", "right")).toBe("r");
   });
 });
+
+function collapsed(entries: NodeEntry[], ...ids: string[]): NodeEntry[] {
+  return entries.map((entry) => (ids.includes(entry.id) ? { ...entry, state: { ...entry.state, collapsed: true } } : entry));
+}
+
+describe("navigate with collapsed branches", () => {
+  it("stays on a collapsed right node instead of entering its hidden children", () => {
+    expect(press(collapsed(TREE, "a"), "a", "right")).toBe("a");
+  });
+
+  it("stays on a collapsed left node instead of entering its hidden children", () => {
+    expect(press(collapsed(TREE, "l1"), "l1", "left")).toBe("l1");
+  });
+
+  it("stays on a collapsed root when moving toward its right branches", () => {
+    expect(press(collapsed(TREE, "r"), "r", "right")).toBe("r");
+  });
+
+  it("stays on a collapsed root when moving toward its left branches", () => {
+    expect(press(collapsed(TREE, "r"), "r", "left")).toBe("r");
+  });
+
+  it("still moves back to the parent from a collapsed node", () => {
+    expect(press(collapsed(TREE, "a"), "a", "left")).toBe("r");
+  });
+
+  it("still moves between siblings from a collapsed node", () => {
+    expect(press(collapsed(TREE, "a"), "a", "down")).toBe("b");
+  });
+
+  it("still enters the children of an expanded sibling of a collapsed node", () => {
+    expect(press(collapsed(TREE, "b"), "a", "right")).toBe("a1");
+  });
+});

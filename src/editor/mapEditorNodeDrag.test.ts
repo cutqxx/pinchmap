@@ -26,7 +26,7 @@ interface Pointer {
   readonly isPrimary?: boolean;
 }
 
-const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 const SAMPLE = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },
@@ -474,7 +474,7 @@ describe("MapEditor reset layout", () => {
     openMap(SAMPLE);
     drag("a", 60);
 
-    expect(openNodeMenu("a")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Сброс", "Удалить"]);
+    expect(openNodeMenu("a")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Свернуть", "Сброс", "Удалить"]);
   });
 
   it("offers no reset item on a node that was not moved", () => {

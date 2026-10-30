@@ -23,7 +23,7 @@ interface FakeHost {
   notify: Mock<(message: string) => void>;
 }
 
-const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 const SAMPLE = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },
@@ -684,6 +684,42 @@ describe("undo and redo of a change of parent", () => {
     expect(parentOf("a")).toBe("c");
     expect(getNode(editor.getMap(), "r1").childIds).toEqual(["b", "c"]);
     expect(pinned("a")).toBeUndefined();
+  });
+});
+
+describe("releasing a node over a collapsed node", () => {
+  const WITH_COLLAPSED = buildMindMap([
+    { id: "r1", text: "Root", parentId: null },
+    { id: "a", text: "A", parentId: "r1", state: { collapsed: true } },
+    { id: "a1", text: "A1", parentId: "a" },
+    { id: "c", text: "C", parentId: "r1" },
+  ]);
+
+  function isHidden(id: string): boolean {
+    return nodeElement(id).classList.contains("is-hidden");
+  }
+
+  it("expands the target so the moved node stays visible and selected", () => {
+    openMap(WITH_COLLAPSED);
+
+    dragOnto("c", "a");
+
+    expect(parentOf("c")).toBe("a");
+    expect(getNode(editor.getMap(), "a").state).toBeUndefined();
+    expect(isHidden("c")).toBe(false);
+    expect(isHidden("a1")).toBe(false);
+    expect(nodeElement("c").classList.contains("is-selected")).toBe(true);
+  });
+
+  it("collapses the target again and returns the node with one undo", () => {
+    openMap(WITH_COLLAPSED);
+    dragOnto("c", "a");
+
+    pressKey("z");
+
+    expect(parentOf("c")).toBe("r1");
+    expect(getNode(editor.getMap(), "a").state).toEqual({ collapsed: true });
+    expect(isHidden("a1")).toBe(true);
   });
 });
 

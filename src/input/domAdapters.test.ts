@@ -547,6 +547,70 @@ describe("attachKeySource", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it("stops propagation of a handled key so Obsidian hotkeys do not also run", () => {
+    attach();
+    const reachedParent = vi.fn();
+    parent.addEventListener("keydown", reachedParent);
+
+    keydown(element, "ArrowDown");
+
+    expect(reachedParent).not.toHaveBeenCalled();
+  });
+
+  it("reports navigation and prevents the default scroll for an arrow key", () => {
+    const { intents } = attach();
+
+    const event = keydown(element, "ArrowLeft");
+
+    expect(intents).toEqual([{ type: "navigate", direction: "left" }]);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("reports fit to screen for Ctrl+0 and prevents the default zoom", () => {
+    const { intents } = attach();
+
+    const event = keydown(element, "0", { ctrlKey: true });
+
+    expect(intents).toEqual([{ type: "fitToScreen" }]);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("ignores a keydown that was already default-prevented", () => {
+    const { intents } = attach();
+    parent.addEventListener("keydown", (event) => event.preventDefault(), true);
+
+    keydown(element, "0", { ctrlKey: true });
+
+    expect(intents).toEqual([]);
+  });
+
+  it("lets an unhandled key propagate", () => {
+    attach();
+    const reachedParent = vi.fn();
+    parent.addEventListener("keydown", reachedParent);
+
+    keydown(element, "a");
+
+    expect(reachedParent).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the physical code so numpad zoom works", () => {
+    const { intents } = attach();
+
+    keydown(element, "Unidentified", { ctrlKey: true, code: "NumpadAdd" });
+
+    expect(intents).toEqual([{ type: "zoomStep", direction: "in" }]);
+  });
+
+  it("leaves arrow keys alone inside a native text input", () => {
+    const { intents } = attach();
+
+    const event = keydown(textarea, "ArrowLeft");
+
+    expect(intents).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("leaves unmapped keys alone", () => {
     const { intents } = attach();
 

@@ -9,6 +9,7 @@ export function attachKeySource(
   onIntent: (intent: Intent) => void,
 ): () => void {
   const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.defaultPrevented) return;
     const mode = isNativeTextInputTarget(event.target) ? "editing" : getMode();
     const intent = keyToIntent(
       {
@@ -23,6 +24,7 @@ export function attachKeySource(
     );
     if (intent === null) return;
     event.preventDefault();
+    event.stopPropagation();
     onIntent(intent);
   };
   element.addEventListener("keydown", onKeyDown);

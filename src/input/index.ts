@@ -4,6 +4,7 @@ export type {
   GestureConfig,
   HitTarget,
   Intent,
+  NavigationDirection,
   PointerKind,
   PointerSample,
   WheelSample,

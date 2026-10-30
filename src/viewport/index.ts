@@ -13,3 +13,5 @@ export type { Camera, Point } from "./camera";
 export { intersectRects, panDeltaToReveal } from "./revealRect";
 export type { OverflowAlign, RevealOptions } from "./revealRect";
 export type { Rect } from "./revealRect";
+export { fitToRect } from "./fitToRect";
+export type { ViewportSize, ZoomLimits } from "./fitToRect";

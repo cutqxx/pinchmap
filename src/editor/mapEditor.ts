@@ -20,9 +20,12 @@ import type { MenuItem } from "./emptySpaceMenu";
 import { DEFAULT_NODE_MENU_LABELS, NodeMenu } from "./nodeMenu";
 import type { NodeMenuLabels } from "./nodeMenu";
 import { KeyboardAssist } from "./keyboardAssist";
+import { navigate } from "./navigation";
+import type { NavigationDirection } from "./navigation";
 import { NodeEdits } from "./nodeEdits";
 import { Selection } from "./selection";
 import { TextEditing } from "./textEditing";
+import { ViewShortcuts } from "./viewShortcuts";
 import type { VisibleAreaSource } from "./visibleArea";
 
 export type { MenuItem };
@@ -63,6 +66,7 @@ export class MapEditor {
   private readonly detachInput: readonly (() => void)[];
   private readonly resizeObserver: ResizeObserver;
   private readonly keyboardAssist: KeyboardAssist;
+  private readonly viewShortcuts: ViewShortcuts;
   private layout: LayoutResult | null = null;
   private sizes: ReadonlyMap<NodeId, Size> = new Map();
   private isFramePending = false;
@@ -86,6 +90,12 @@ export class MapEditor {
     this.requestFrame = requestFrame ?? ((callback) => void view?.requestAnimationFrame(callback));
     this.renderer = new MapRenderer(container, { labels });
     this.camera = new CameraController(this.renderer, this.requestFrame);
+    this.viewShortcuts = new ViewShortcuts({
+      camera: this.camera,
+      canvasElement: this.renderer.canvasElement,
+      getLayout: () => this.layout,
+      getSizes: () => this.sizes,
+    });
     this.selection = new Selection({
       focusCanvas: () => this.renderer.focusCanvas(),
       scheduleFrame: () => this.scheduleFrame(),
@@ -146,6 +156,14 @@ export class MapEditor {
   redo(): void {
     this.commitPendingEdit();
     this.nodeEdits.redo();
+  }
+
+  fitToScreen(): void {
+    if (!this.isEditingText()) this.viewShortcuts.fitToScreen();
+  }
+
+  zoomStep(direction: "in" | "out"): void {
+    if (!this.isEditingText()) this.viewShortcuts.zoomStep(direction);
   }
 
   setLongPressSeconds(seconds: number): void {
@@ -270,6 +288,12 @@ export class MapEditor {
         return this.editSelection();
       case "clearSelection":
         return this.selection.select(null);
+      case "navigate":
+        return this.navigateSelection(intent.direction);
+      case "fitToScreen":
+        return this.fitToScreen();
+      case "zoomStep":
+        return this.zoomStep(intent.direction);
       case "undo":
         return this.undo();
       case "redo":
@@ -306,6 +330,14 @@ export class MapEditor {
     this.handleTap(target);
     if (target.kind === "node") this.textEditing.beginEditing(target.nodeId, null);
     if (target.kind === "canvas") this.emptySpaceMenu.addRootAt(point);
+  }
+
+  private navigateSelection(direction: NavigationDirection): void {
+    if (this.layout === null) return;
+    const targetId = navigate(this.nodeEdits.getDisplayMap(), this.layout, this.selection.current, direction);
+    if (targetId === null) return;
+    this.selection.select(targetId);
+    this.viewShortcuts.revealNode(targetId);
   }
 
   private editSelection(): void {

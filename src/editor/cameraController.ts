@@ -57,6 +57,10 @@ export class CameraController {
     }
   }
 
+  setCamera(camera: Camera): void {
+    this.moveTo(camera);
+  }
+
   panBy(dx: number, dy: number): void {
     this.moveTo(panBy(this.camera, dx, dy));
   }

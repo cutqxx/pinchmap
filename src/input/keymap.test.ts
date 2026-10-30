@@ -18,7 +18,7 @@ describe("keyToIntent in navigate mode", () => {
     expect(keyToIntent(chord(key), "navigate")).toEqual({ type });
   });
 
-  it.each(["a", " ", "ArrowDown"])("ignores the unmapped key %s", (key) => {
+  it.each(["a", " "])("ignores the unmapped key %s", (key) => {
     expect(keyToIntent(chord(key), "navigate")).toBeNull();
   });
 
@@ -134,5 +134,83 @@ describe("keyToIntent undo and redo shortcuts", () => {
 
   it("keeps a modified non-letter key unmapped when a code is present", () => {
     expect(keyToIntent(chord("Tab", { ctrlKey: true, code: "Tab" }), "navigate")).toBeNull();
+  });
+});
+
+describe("keyToIntent arrow navigation", () => {
+  it.each([
+    ["ArrowUp", "up"],
+    ["ArrowDown", "down"],
+    ["ArrowLeft", "left"],
+    ["ArrowRight", "right"],
+  ])("maps %s to navigate %s", (key, direction) => {
+    expect(keyToIntent(chord(key), "navigate")).toEqual({ type: "navigate", direction });
+  });
+
+  it.each(["ctrlKey", "metaKey", "altKey", "shiftKey"] as const)("ignores an arrow held with %s", (modifier) => {
+    for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
+      expect(keyToIntent(chord(key, { [modifier]: true }), "navigate")).toBeNull();
+    }
+  });
+
+  it("does not navigate while editing", () => {
+    expect(keyToIntent(chord("ArrowLeft"), "editing")).toBeNull();
+  });
+});
+
+describe("keyToIntent zoom shortcuts", () => {
+  const FIT = { type: "fitToScreen" };
+  const ZOOM_IN = { type: "zoomStep", direction: "in" };
+  const ZOOM_OUT = { type: "zoomStep", direction: "out" };
+
+  it.each(["ctrlKey", "metaKey"] as const)("maps %s+0 to fit to screen", (modifier) => {
+    expect(keyToIntent(chord("0", { [modifier]: true }), "navigate")).toEqual(FIT);
+  });
+
+  it.each(["ctrlKey", "metaKey"] as const)("maps %s+= to zoom in", (modifier) => {
+    expect(keyToIntent(chord("=", { [modifier]: true }), "navigate")).toEqual(ZOOM_IN);
+  });
+
+  it.each(["ctrlKey", "metaKey"] as const)("maps %s+Shift+= typed as + to zoom in", (modifier) => {
+    expect(keyToIntent(chord("+", { [modifier]: true, shiftKey: true }), "navigate")).toEqual(ZOOM_IN);
+  });
+
+  it("maps Ctrl+ plain + to zoom in", () => {
+    expect(keyToIntent(chord("+", { ctrlKey: true }), "navigate")).toEqual(ZOOM_IN);
+  });
+
+  it.each(["ctrlKey", "metaKey"] as const)("maps %s+- to zoom out", (modifier) => {
+    expect(keyToIntent(chord("-", { [modifier]: true }), "navigate")).toEqual(ZOOM_OUT);
+  });
+
+  it.each([
+    ["Numpad0", FIT],
+    ["NumpadAdd", ZOOM_IN],
+    ["NumpadSubtract", ZOOM_OUT],
+    ["Digit0", FIT],
+    ["Equal", ZOOM_IN],
+    ["Minus", ZOOM_OUT],
+  ])("falls back to code %s when the key is not printable", (code, intent) => {
+    expect(keyToIntent(chord("Unidentified", { ctrlKey: true, code }), "navigate")).toEqual(intent);
+  });
+
+  it("maps AZERTY Ctrl+0 (key a-grave on Digit0) to fit to screen", () => {
+    expect(keyToIntent(chord("à", { ctrlKey: true, code: "Digit0" }), "navigate")).toEqual(FIT);
+  });
+
+  it("does not zoom out for the AZERTY key that types ) on the Minus code", () => {
+    expect(keyToIntent(chord(")", { ctrlKey: true, code: "Minus" }), "navigate")).toBeNull();
+  });
+
+  it.each(["0", "=", "-"])("ignores %s without Ctrl or Cmd", (key) => {
+    expect(keyToIntent(chord(key), "navigate")).toBeNull();
+  });
+
+  it.each(["0", "=", "-"])("ignores Ctrl+Alt+%s", (key) => {
+    expect(keyToIntent(chord(key, { ctrlKey: true, altKey: true }), "navigate")).toBeNull();
+  });
+
+  it.each(["0", "=", "-"])("does not zoom while editing with Ctrl+%s", (key) => {
+    expect(keyToIntent(chord(key, { ctrlKey: true }), "editing")).toBeNull();
   });
 });

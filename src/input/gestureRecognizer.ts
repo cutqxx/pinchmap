@@ -31,6 +31,8 @@ export interface WheelSample {
   readonly shiftKey: boolean;
 }
 
+export type NavigationDirection = "up" | "down" | "left" | "right";
+
 export type Intent =
   | { readonly type: "tap"; readonly target: HitTarget }
   | { readonly type: "doubleTap"; readonly target: HitTarget; readonly point: ScreenPoint }
@@ -52,7 +54,10 @@ export type Intent =
   | { readonly type: "editSelection" }
   | { readonly type: "clearSelection" }
   | { readonly type: "undo" }
-  | { readonly type: "redo" };
+  | { readonly type: "redo" }
+  | { readonly type: "navigate"; readonly direction: NavigationDirection }
+  | { readonly type: "fitToScreen" }
+  | { readonly type: "zoomStep"; readonly direction: "in" | "out" };
 
 export interface GestureConfig {
   readonly dragThresholdPx: number;

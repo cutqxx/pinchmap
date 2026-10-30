@@ -7,6 +7,7 @@ import { createDebouncedSave } from "./autosave";
 import { createVisibleAreaSource } from "./visibleArea";
 import { showObsidianMenu } from "./showMenu";
 import { ExternalChangeGate } from "./externalChangeGate";
+import { registerViewZoomHotkeys } from "./viewZoomHotkeys";
 import { t } from "./i18n";
 
 export const MAP_VIEW_TYPE = "pinchmap-view";
@@ -62,6 +63,7 @@ export class MapView extends TextFileView {
     this.redoAction = this.addHistoryAction("redo-2", t("redo"), () => this.editor.redo());
     this.undoAction = this.addHistoryAction("undo-2", t("undo"), () => this.editor.undo());
     this.showHistoryAvailability(false, false);
+    if (this.scope) registerViewZoomHotkeys(this.scope, this.editor);
     this.registerEvent(this.app.vault.on("modify", (file) => void this.handleVaultModify(file)));
   }
 

@@ -26,10 +26,11 @@ export class NodeDragTracker {
     if (drag === null || drag.pointerId !== sample.pointerId) return [];
     const dx = sample.x - drag.originX;
     const dy = sample.y - drag.originY;
-    if (drag.hasStarted) return [{ type: "nodeDrag", dx, dy }];
+    const point = { x: sample.x, y: sample.y };
+    if (drag.hasStarted) return [{ type: "nodeDrag", dx, dy, point }];
     if (Math.hypot(dx, dy) <= thresholdPx) return [];
     drag.hasStarted = true;
-    return [{ type: "nodeDragStart", nodeId: drag.nodeId }, { type: "nodeDrag", dx, dy }];
+    return [{ type: "nodeDragStart", nodeId: drag.nodeId }, { type: "nodeDrag", dx, dy, point }];
   }
 
   finish(pointerId: number, outcome: NodeDragOutcome): readonly Intent[] {

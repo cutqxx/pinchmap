@@ -9,6 +9,7 @@ import {
 } from "../input";
 import { DEFAULT_GESTURE_CONFIG } from "../input";
 import type { HitTarget, Intent, ScreenPoint } from "../input";
+import { clearPositionsOfReparentedNodes } from "../commands";
 import { computeLayout } from "../layout";
 import type { LayoutResult, Size } from "../layout";
 import type { MindMap, NodeId } from "../model";
@@ -134,6 +135,10 @@ export class MapEditor {
     this.layout = null;
     this.sizes = new Map();
     this.scheduleFrame();
+  }
+
+  reloadMap(map: MindMap): void {
+    this.loadMap(clearPositionsOfReparentedNodes(this.nodeEdits.getDisplayMap(), map));
   }
 
   beginEditingNode(nodeId: NodeId): void {
@@ -270,7 +275,8 @@ export class MapEditor {
     return new NodeDrag({
       getMap: () => this.nodeEdits.getDisplayMap(),
       getLayout: () => this.layout,
-      getZoom: () => this.camera.getCamera().zoom,
+      getSizes: () => this.sizes,
+      getCamera: () => this.camera.getCamera(),
       replaceDisplayMap: (map) => this.nodeEdits.replaceDisplayMap(map),
       applyEdit: (edit) => this.nodeEdits.applyEdit(edit),
       selectNode: (nodeId) => this.selection.select(nodeId),
@@ -318,7 +324,7 @@ export class MapEditor {
       case "nodeDragStart":
         return this.nodeDrag.start(intent.nodeId);
       case "nodeDrag":
-        return this.nodeDrag.move(intent.dx, intent.dy);
+        return this.nodeDrag.move(intent.dx, intent.dy, intent.point);
       case "nodeDragEnd":
         return this.nodeDrag.end();
       case "nodeDragCancel":
@@ -413,6 +419,10 @@ export class MapEditor {
   }
 
   private currentRenderUi(): RenderUi {
-    return { editing: this.textEditing.currentDraft(), selectedId: this.selection.current };
+    return {
+      editing: this.textEditing.currentDraft(),
+      selectedId: this.selection.current,
+      dropTargetId: this.nodeDrag.dropTargetId(),
+    };
   }
 }

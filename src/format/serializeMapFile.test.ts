@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMindMap, getNode, withNodeText, withSidesResolved } from "../model";
+import { buildMindMap, getNode, withNewChild, withNewRoot, withNewSibling, withNodeText, withSidesResolved } from "../model";
 import type { MindMap, NodeState } from "../model";
 import { parseMapFile } from "./parseMapFile";
 import { serializeMapFile } from "./serializeMapFile";
@@ -823,5 +823,43 @@ describe("serializeMapFile with branch sides", () => {
     const { map, source } = parseMapFile(file, sequenceRandom());
 
     expect(serializeMapFile(map, source)).toBe(file);
+  });
+});
+
+describe("serializeMapFile adding after the last item of a file without a trailing newline", () => {
+  it("ends the last item's line before a new root", () => {
+    const { map, source } = parseMapFile("- A ^a1\n- C ^c1");
+
+    const text = serializeMapFile(withNewRoot(map, { id: "n1", text: "New" }), source);
+
+    expect(text.startsWith("- A ^a1\n- C ^c1\n- New ^n1\n")).toBe(true);
+    expect(parseMapFile(text).map.rootIds).toEqual(["a1", "c1", "n1"]);
+  });
+
+  it("ends the last item's line with the file's CRLF before a new sibling", () => {
+    const { map, source } = parseMapFile("- A ^a1\r\n\t- C ^c1");
+
+    const text = serializeMapFile(withNewSibling(map, "c1", { id: "n1", text: "New" }), source);
+
+    expect(text.startsWith("- A ^a1\r\n\t- C ^c1\r\n")).toBe(true);
+    expect(getNode(parseMapFile(text).map, "a1").childIds).toEqual(["c1", "n1"]);
+  });
+});
+
+describe("serializeMapFile indentation of new items in a file with uneven indentation", () => {
+  it("nests a new child under a parent indented deeper than the file's indent unit suggests", () => {
+    const { map, source } = parseMapFile("- A ^a1\n  - B ^b1\n      - C ^c1\n");
+
+    const text = serializeMapFile(withNewChild(map, { id: "n1", text: "New", parentId: "c1" }), source);
+
+    expect(getNode(parseMapFile(text).map, "n1").parentId).toBe("c1");
+  });
+
+  it("lines a new sibling up with the item it was added after", () => {
+    const { map, source } = parseMapFile("- A ^a1\n  - B ^b1\n      - C ^c1\n");
+
+    const text = serializeMapFile(withNewSibling(map, "c1", { id: "n1", text: "New" }), source);
+
+    expect(text.startsWith("- A ^a1\n  - B ^b1\n      - C ^c1\n      - New ^n1\n")).toBe(true);
   });
 });

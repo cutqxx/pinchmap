@@ -1,6 +1,7 @@
 import { Notice, TextFileView } from "obsidian";
 import type { TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import { MapEditor } from "../editor";
+import type { MindMap } from "../model";
 import { parseMapFile, serializeMapFile } from "../format";
 import type { ParsedMapFile } from "../format";
 import { createDebouncedSave } from "./autosave";
@@ -164,14 +165,14 @@ export class MapView extends TextFileView {
   private reloadFromExternalChange(text: string): void {
     const hadUnsavedChanges = this.autosave.hasPending() || this.hasUnsavedEditsHeldBack;
     this.autosave.cancel();
-    this.loadText(text);
+    this.loadText(text, (map) => this.editor.reloadMap(map));
     if (hadUnsavedChanges) this.notify(t("mapUpdatedExternally"));
   }
 
-  private loadText(data: string): void {
+  private loadText(data: string, load = (map: MindMap) => this.editor.loadMap(map)): void {
     this.hasUnsavedEditsHeldBack = false;
     this.parsedFile = parseMapFile(data);
-    this.editor.loadMap(this.parsedFile.map);
+    load(this.parsedFile.map);
     if (this.parsedFile.isLayoutUnreadable) this.notify(t("layoutUnreadable"));
   }
 

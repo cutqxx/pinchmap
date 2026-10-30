@@ -25,4 +25,4 @@ export {
   withSide,
 } from "./nodeFields";
 export type { NewSiblingEntry } from "./branchEdits";
-export { withNewRoot, withNewSibling, withoutBranch } from "./branchEdits";
+export { withNewRoot, withNewSibling, withoutBranch, withMovedBranch } from "./branchEdits";

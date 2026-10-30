@@ -25,6 +25,13 @@ export interface SourceLayout {
 
 export const DEFAULT_INDENT_UNIT = "\t";
 
+const TAB_WIDTH = 4;
+
+/** Width of an indent in columns, as the parser compares indents to find an item's parent. */
+export function measureIndent(indent: string): number {
+  return [...indent].reduce((width, char) => width + (char === "\t" ? TAB_WIDTH : 1), 0);
+}
+
 export function rewriteItemLines(item: SourceItem, id: NodeId, text: string): string[] {
   const [firstLine = "", ...continuation] = text.split("\n");
   const content = composeItemContent(firstLine, id, item.hasWrittenId);
@@ -51,6 +58,12 @@ function chooseContinuationIndent(item: SourceItem, continuation: readonly strin
   const hasUnindentedLine = continuation.some((line) => line.trim() !== "" && !/^[ \t]/.test(line));
   const isMixed = !hasUnindentedLine && continuation.some((line) => line.trim() !== "");
   return isMixed ? deriveContinuationIndent(item.prefix) : item.continuationIndent;
+}
+
+/** The item moved to `indent`, keeping its bullet marker; used when its branch moved in the tree. */
+export function reindentItem(item: SourceItem, indent: string): SourceItem {
+  const prefix = indent + item.prefix.slice(leadingWhitespace(item.prefix).length);
+  return { ...item, prefix, continuationIndent: deriveContinuationIndent(prefix) };
 }
 
 export function renderNewItemLines(indent: string, text: string, id: NodeId, lineEnding = "\n"): string[] {
@@ -87,6 +100,6 @@ function terminateLines(textLines: readonly string[], item: SourceItem): string[
   return textLines.map((line, index) => line + (index === lastIndex ? finalEnding : separator));
 }
 
-function leadingWhitespace(text: string): string {
+export function leadingWhitespace(text: string): string {
   return /^[ \t]*/.exec(text)?.[0] ?? "";
 }

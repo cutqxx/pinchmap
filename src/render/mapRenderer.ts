@@ -6,6 +6,7 @@ import { edgePath } from "./edgePath";
 export interface RenderUi {
   readonly editing: { readonly nodeId: NodeId; readonly draftText: string } | null;
   readonly selectedId: NodeId | null;
+  readonly dropTargetId?: NodeId | null;
 }
 
 export interface AddButtonLabels {
@@ -132,6 +133,7 @@ export class MapRenderer {
     element.classList.toggle("is-root", node.parentId === null);
     const isSelected = ui.selectedId === node.id;
     element.classList.toggle("is-selected", isSelected);
+    element.classList.toggle("pinchmap-node--drop-target", ui.dropTargetId === node.id);
     this.syncAddButtons(element, node.id, isSelected && !isEditing);
   }
 

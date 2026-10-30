@@ -49,7 +49,7 @@ export type Intent =
       readonly scaleDelta: number;
     }
   | { readonly type: "nodeDragStart"; readonly nodeId: string }
-  | { readonly type: "nodeDrag"; readonly dx: number; readonly dy: number }
+  | { readonly type: "nodeDrag"; readonly dx: number; readonly dy: number; readonly point: ScreenPoint }
   | { readonly type: "nodeDragEnd" }
   | { readonly type: "nodeDragCancel" }
   | { readonly type: "wheelPan"; readonly dx: number; readonly dy: number }

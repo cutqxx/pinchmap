@@ -58,7 +58,7 @@ describe.each(DEVICES)("node drag threshold with %s", (_name, device) => {
 
     expect(intents).toEqual([
       { type: "nodeDragStart", nodeId: "a" },
-      { type: "nodeDrag", dx: 8.5, dy: 0 },
+      { type: "nodeDrag", dx: 8.5, dy: 0, point: { x: 108.5, y: 100 } },
     ]);
   });
 
@@ -73,7 +73,7 @@ describe.each(DEVICES)("node drag threshold with %s", (_name, device) => {
 
     expect(send("move", { ...device, x: 106, y: 106 })).toEqual([
       { type: "nodeDragStart", nodeId: "a" },
-      { type: "nodeDrag", dx: 6, dy: 6 },
+      { type: "nodeDrag", dx: 6, dy: 6, point: { x: 106, y: 106 } },
     ]);
   });
 
@@ -81,14 +81,14 @@ describe.each(DEVICES)("node drag threshold with %s", (_name, device) => {
     send("down", device);
     send("move", { ...device, x: 120 });
 
-    expect(send("move", { ...device, x: 130, y: 90 })).toEqual([{ type: "nodeDrag", dx: 30, dy: -10 }]);
+    expect(send("move", { ...device, x: 130, y: 90 })).toEqual([{ type: "nodeDrag", dx: 30, dy: -10, point: { x: 130, y: 90 } }]);
   });
 
   it("keeps dragging after coming back inside the threshold", () => {
     send("down", device);
     send("move", { ...device, x: 150 });
 
-    expect(send("move", { ...device, x: 101 })).toEqual([{ type: "nodeDrag", dx: 1, dy: 0 }]);
+    expect(send("move", { ...device, x: 101 })).toEqual([{ type: "nodeDrag", dx: 1, dy: 0, point: { x: 101, y: 100 } }]);
   });
 
   it("ends the drag on release without a tap", () => {
@@ -304,7 +304,7 @@ describe("node drag and stale touches", () => {
 
     expect(send("move", { pointerId: 3, x: 150 })).toEqual([
       { type: "nodeDragStart", nodeId: "a" },
-      { type: "nodeDrag", dx: 50, dy: 0 },
+      { type: "nodeDrag", dx: 50, dy: 0, point: { x: 150, y: 100 } },
     ]);
   });
 });
@@ -337,6 +337,22 @@ describe("node drag and the space key", () => {
     send("move", { kind: "mouse", x: 150 });
     recognizer.setSpaceHeld(true);
 
-    expect(send("move", { kind: "mouse", x: 160 })).toEqual([{ type: "nodeDrag", dx: 60, dy: 0 }]);
+    expect(send("move", { kind: "mouse", x: 160 })).toEqual([{ type: "nodeDrag", dx: 60, dy: 0, point: { x: 160, y: 100 } }]);
+  });
+});
+
+describe("node drag pointer point", () => {
+  it("reports the latest pointer position, not the start, on every move", () => {
+    send("down", { kind: "mouse" });
+    send("move", { kind: "mouse", x: 140, y: 60 });
+
+    expect(send("move", { kind: "mouse", x: 90, y: 220 })).toEqual([{ type: "nodeDrag", dx: -10, dy: 120, point: { x: 90, y: 220 } }]);
+  });
+
+  it("keeps the point in step with the pointer when it comes back near the press point", () => {
+    send("down", { kind: "touch" });
+    send("move", { kind: "touch", x: 160 });
+
+    expect(send("move", { kind: "touch", x: 100, y: 100 })).toEqual([{ type: "nodeDrag", dx: 0, dy: 0, point: { x: 100, y: 100 } }]);
   });
 });

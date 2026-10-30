@@ -5,7 +5,7 @@ import type { ReadJson } from "./jsonBlock";
 import { splitLines, stripLineEnding } from "./lines";
 import { LIST_LINE, findListRegion, groupIntoItemBlocks, isBlankLine } from "./listRegion";
 import type { ItemBlock } from "./listRegion";
-import { DEFAULT_INDENT_UNIT, deriveContinuationIndent, deriveIndentUnit, unescapeBulletLikeLine } from "./sourceLayout";
+import { DEFAULT_INDENT_UNIT, deriveContinuationIndent, deriveIndentUnit, measureIndent, unescapeBulletLikeLine } from "./sourceLayout";
 import type { SourceItem, SourceLayout } from "./sourceLayout";
 import { TRAILING_ID } from "./trailingId";
 
@@ -36,8 +36,6 @@ interface Placement {
   readonly parentIndex: number | null;
   readonly depth: number;
 }
-
-const TAB_WIDTH = 4;
 
 export function parseMapFile(text: string, random: () => number = Math.random): ParsedMapFile {
   const lines = splitLines(text);
@@ -109,7 +107,7 @@ function parseListLine(block: ItemBlock): ParsedListLine {
     finalLineEnding: lastLineEnding([block.firstLine, ...block.continuationLines]),
     continuationIndent,
     trailingBlankLines: block.trailingBlankLines,
-    indentWidth: measureIndent(prefix),
+    indentWidth: measureIndent(leadingWhitespace(prefix)),
     text: [firstLineText, ...continuationText].join("\n"),
     explicitId: idMatch?.[1] ?? null,
   };
@@ -135,11 +133,6 @@ function stripContinuationIndent(line: string, continuationIndent: string): stri
 
 function lastLineEnding(textLines: readonly string[]): string {
   return /\r?\n$/.exec(textLines[textLines.length - 1] ?? "")?.[0] ?? "";
-}
-
-function measureIndent(prefix: string): number {
-  const indent = /^[ \t]*/.exec(prefix)?.[0] ?? "";
-  return [...indent].reduce((width, char) => width + (char === "\t" ? TAB_WIDTH : 1), 0);
 }
 
 function assignIds(lines: readonly ParsedListLine[], jsonIds: ReadonlySet<NodeId>, random: () => number): AssignedId[] {

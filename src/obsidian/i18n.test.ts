@@ -56,11 +56,12 @@ describe("t mapActionFailed", () => {
 describe("t empty-space menu and long press setting", () => {
   it.each([
     ["addNode", "Добавить ноду", "Add node"],
+    ["delete", "Удалить", "Delete"],
     ["longPressSettingName", "Длительность долгого нажатия", "Long press duration"],
     [
       "longPressSettingDescription",
-      "Сколько секунд держать палец на пустом месте, чтобы открыть меню. Допустимо от 0,2 до 2,0.",
-      "Seconds to hold on empty space to open the menu. Allowed range: 0.2 to 2.0.",
+      "Сколько секунд держать палец на ноде или на пустом месте, чтобы открыть меню. Допустимо от 0,2 до 2,0.",
+      "Seconds to hold a finger on a node or on empty space to open its menu. Allowed range: 0.2 to 2.0.",
     ],
   ] as const)("returns the %s label in ru and en", (key, ru, en) => {
     expect(t(key, "ru")).toBe(ru);

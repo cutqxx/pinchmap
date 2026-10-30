@@ -202,12 +202,13 @@ describe("MapEditor menu on empty space", () => {
     expect(offeredMenu().at).toEqual({ x: 150, y: 260 });
   });
 
-  it("opens no menu on a right click over a node", () => {
+  it("opens the node menu, not the empty-space menu, on a right click over a node", () => {
     openMap(SAMPLE);
 
     rightClickAt({ x: 5, y: 5 }, nodeElement("r1"));
 
-    expect(host.showMenu).not.toHaveBeenCalled();
+    expect(host.showMenu).toHaveBeenCalledTimes(1);
+    expect(offeredMenu().items.map((item) => item.label)).not.toContain("Add node");
   });
 
   it("opens no menu when the press is shorter than the long press duration", () => {
@@ -230,12 +231,13 @@ describe("MapEditor menu on empty space", () => {
     expect(host.showMenu).not.toHaveBeenCalled();
   });
 
-  it("opens no menu on a long press over a node", () => {
+  it("opens the node menu, not the empty-space menu, on a long press over a node", () => {
     openMap(SAMPLE);
 
     longPressAt({ x: 5, y: 5 }, nodeElement("r1"));
 
-    expect(host.showMenu).not.toHaveBeenCalled();
+    expect(host.showMenu).toHaveBeenCalledTimes(1);
+    expect(offeredMenu().items.map((item) => item.label)).not.toContain("Add node");
   });
 
   it("uses the long press duration set at runtime in seconds", () => {

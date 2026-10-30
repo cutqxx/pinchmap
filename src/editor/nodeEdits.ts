@@ -53,12 +53,14 @@ export class NodeEdits {
   }
 
   addChildTo(parentId: NodeId): void {
+    if (!this.hasNode(parentId)) return;
     const layout = this.deps.getLayout();
     const side = layout === null ? "right" : chooseSideForNewBranch(layout, parentId);
     this.createNode((map, id) => addChild(map, { parentId, id, text: "", side }));
   }
 
   addSiblingTo(anchorId: NodeId): void {
+    if (!this.hasNode(anchorId)) return;
     const side: Side = this.deps.getLayout()?.sides.get(anchorId) ?? "right";
     const rootPosition = this.positionForNewRootBelow(anchorId);
     this.createNode((map, id) => addSibling(map, { anchorId, id, text: "", side, rootPosition }));
@@ -80,10 +82,18 @@ export class NodeEdits {
 
   deleteSelection(): void {
     const nodeId = this.deps.selection.current;
-    if (nodeId === null) return;
+    if (nodeId !== null) this.deleteNode(nodeId);
+  }
+
+  deleteNode(nodeId: NodeId): void {
+    if (!this.hasNode(nodeId)) return;
     this.deps.selection.set(selectionAfterDelete(this.displayMap, nodeId));
     this.applyEdit((map) => deleteBranch(map, { nodeId }));
     this.deps.scheduleFrame();
+  }
+
+  private hasNode(nodeId: NodeId): boolean {
+    return this.displayMap.nodes.has(nodeId);
   }
 
   private positionForNewRootBelow(anchorId: NodeId): RootPosition | undefined {

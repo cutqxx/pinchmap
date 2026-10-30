@@ -17,6 +17,8 @@ import type { AddButtonLabels, RenderUi } from "../render";
 import { CameraController, isCameraIntent } from "./cameraController";
 import { EmptySpaceMenu } from "./emptySpaceMenu";
 import type { MenuItem } from "./emptySpaceMenu";
+import { DEFAULT_NODE_MENU_LABELS, NodeMenu } from "./nodeMenu";
+import type { NodeMenuLabels } from "./nodeMenu";
 import { KeyboardAssist } from "./keyboardAssist";
 import { NodeEdits } from "./nodeEdits";
 import { Selection } from "./selection";
@@ -40,6 +42,7 @@ export interface MapEditorOptions {
   readonly visibleArea?: VisibleAreaSource;
   readonly doneLabel?: string;
   readonly addNodeLabel?: string;
+  readonly nodeMenuLabels?: NodeMenuLabels;
   readonly longPressSeconds?: number;
 }
 
@@ -52,6 +55,7 @@ export class MapEditor {
   private readonly nodeEdits: NodeEdits;
   private readonly textEditing: TextEditing;
   private readonly emptySpaceMenu: EmptySpaceMenu;
+  private readonly nodeMenu: NodeMenu;
   private readonly host: MapHost;
   private readonly requestFrame: (callback: () => void) => void;
   private readonly camera: CameraController;
@@ -71,6 +75,7 @@ export class MapEditor {
     visibleArea,
     doneLabel,
     addNodeLabel,
+    nodeMenuLabels,
     longPressSeconds,
   }: MapEditorOptions) {
     const view = container.ownerDocument.defaultView;
@@ -87,6 +92,7 @@ export class MapEditor {
     this.nodeEdits = this.createNodeEdits();
     this.textEditing = this.createTextEditing();
     this.emptySpaceMenu = this.createEmptySpaceMenu(addNodeLabel ?? "Add node");
+    this.nodeMenu = this.createNodeMenu(nodeMenuLabels ?? DEFAULT_NODE_MENU_LABELS);
     this.detachInput = this.attachInput(this.renderer.canvasElement);
     this.resizeObserver = new ResizeObserver(() => this.scheduleFrame());
     this.resizeObserver.observe(container);
@@ -181,6 +187,27 @@ export class MapEditor {
     });
   }
 
+  private createNodeMenu(labels: NodeMenuLabels): NodeMenu {
+    return new NodeMenu({
+      canvasElement: this.renderer.canvasElement,
+      labels,
+      actions: {
+        addChildTo: (nodeId) => this.nodeEdits.addChildTo(nodeId),
+        addSiblingTo: (nodeId) => this.nodeEdits.addSiblingTo(nodeId),
+        deleteNode: (nodeId) => this.deleteNodeAndFocusCanvas(nodeId),
+      },
+      getMap: () => this.nodeEdits.getDisplayMap(),
+      showMenu: (items, at) => this.host.showMenu(items, at),
+      commitPendingEdit: () => this.commitPendingEdit(),
+      selectNode: (nodeId) => this.selection.select(nodeId),
+    });
+  }
+
+  private deleteNodeAndFocusCanvas(nodeId: NodeId): void {
+    this.nodeEdits.deleteNode(nodeId);
+    this.renderer.focusCanvas();
+  }
+
   private attachInput(canvas: HTMLElement): readonly (() => void)[] {
     const dispatch = (intents: readonly Intent[]): void =>
       intents.forEach((intent) => this.handleIntent(intent));
@@ -210,7 +237,7 @@ export class MapEditor {
         return this.handleDoubleTap(intent.target, intent.point);
       case "longPress":
       case "contextMenu":
-        return this.emptySpaceMenu.requestMenu(intent.target, intent.point);
+        return this.openContextMenu(intent.target, intent.point);
       case "addChild":
         return this.nodeEdits.addChildToSelection();
       case "addSibling":
@@ -221,6 +248,18 @@ export class MapEditor {
         return this.editSelection();
       case "clearSelection":
         return this.selection.select(null);
+    }
+  }
+
+  private openContextMenu(target: HitTarget, point: ScreenPoint): void {
+    switch (target.kind) {
+      case "canvas":
+        return this.emptySpaceMenu.requestMenu(target, point);
+      case "node":
+        return this.nodeMenu.requestMenu(target, point);
+      case "add-child":
+      case "add-sibling":
+        return;
     }
   }
 

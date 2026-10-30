@@ -217,6 +217,69 @@ describe("gestures after a long press", () => {
   });
 });
 
+describe("long press on a node", () => {
+  it("fires at the configured duration and not before", () => {
+    recognizer = newRecognizer(800);
+    press({ target: NODE_A });
+
+    vi.advanceTimersByTime(799);
+    expect(longPresses()).toEqual([]);
+    vi.advanceTimersByTime(1);
+
+    expect(longPresses()).toEqual([{ type: "longPress", target: NODE_A, point: { x: 100, y: 100 } }]);
+  });
+
+  it("is cancelled by a move of more than 8 px", () => {
+    press({ target: NODE_A });
+
+    move({ target: NODE_A, x: 109 });
+    vi.advanceTimersByTime(1000);
+
+    expect(longPresses()).toEqual([]);
+  });
+
+  it("survives a move of exactly 8 px", () => {
+    press({ target: NODE_A });
+
+    move({ target: NODE_A, x: 108 });
+    vi.advanceTimersByTime(500);
+
+    expect(longPresses()).toHaveLength(1);
+  });
+
+  it("reports neither tap nor doubleTap on release after it fired", () => {
+    press({ target: NODE_A });
+    vi.advanceTimersByTime(500);
+
+    expect(release({ target: NODE_A })).toEqual([]);
+  });
+
+  it("does not make the next quick tap on the node a doubleTap", () => {
+    press({ target: NODE_A });
+    vi.advanceTimersByTime(500);
+    release({ target: NODE_A });
+
+    press({ target: NODE_A });
+
+    expect(release({ target: NODE_A })).toEqual([{ type: "tap", target: NODE_A }]);
+  });
+
+  it("gives no pan for moves after it fired", () => {
+    press({ target: NODE_A });
+    vi.advanceTimersByTime(500);
+
+    expect(move({ target: NODE_A, x: 200, y: 200 })).toEqual([]);
+  });
+
+  it("starts no drag intent when the finger stays still", () => {
+    press({ target: NODE_A });
+    vi.advanceTimersByTime(500);
+    move({ target: NODE_A, x: 101, y: 100 });
+
+    expect(emitted.map((intent) => intent.type)).toEqual(["longPress"]);
+  });
+});
+
 describe("setLongPressMs", () => {
   it("lengthens the duration of the next press", () => {
     recognizer.setLongPressMs(1000);
@@ -253,16 +316,33 @@ describe("setLongPressMs", () => {
 });
 
 describe("long press eligibility", () => {
-  it("starts no timer for a press on a node", () => {
-    press({ target: NODE_A });
+  it("emits longPress with the node target for a touch press on a node", () => {
+    press({ target: NODE_A, x: 40, y: 50 });
+
+    vi.advanceTimersByTime(500);
+
+    expect(emitted).toEqual([{ type: "longPress", target: NODE_A, point: { x: 40, y: 50 } }]);
+  });
+
+  it("starts no timer for a press on a plus button", () => {
+    press({ target: ADD_CHILD });
 
     vi.advanceTimersByTime(5000);
 
     expect(emitted).toEqual([]);
   });
 
-  it("starts no timer for a press on a plus button", () => {
-    press({ target: ADD_CHILD });
+  it("starts no timer for a mouse press on a node", () => {
+    press({ kind: "mouse", target: NODE_A });
+
+    vi.advanceTimersByTime(5000);
+
+    expect(emitted).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("starts no timer for a press on a sibling plus button", () => {
+    press({ target: { kind: "add-sibling", nodeId: "a" } });
 
     vi.advanceTimersByTime(5000);
 

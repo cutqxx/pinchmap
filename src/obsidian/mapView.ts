@@ -41,6 +41,7 @@ export class MapView extends TextFileView {
       visibleArea: createVisibleAreaSource(this.contentEl.ownerDocument.defaultView ?? window),
       doneLabel: t("done"),
       addNodeLabel: t("addNode"),
+      nodeMenuLabels: { addChild: t("addChild"), addSibling: t("addSibling"), delete: t("delete") },
       longPressSeconds,
       labels: { addChild: t("addChild"), addSibling: t("addSibling") },
       host: {

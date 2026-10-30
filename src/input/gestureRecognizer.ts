@@ -186,7 +186,7 @@ export class GestureRecognizer {
   }
 
   private startLongPressIfEligible(sample: PointerSample): void {
-    if (this.candidate === null || sample.kind !== "touch" || sample.target.kind !== "canvas") return;
+    if (this.candidate === null || sample.kind !== "touch" || !isLongPressTarget(sample.target)) return;
     this.longPressTimer.start(this.longPressMs, () => this.fireLongPress(sample));
   }
 
@@ -338,6 +338,10 @@ function startCandidate(sample: PointerSample): TapCandidate {
     target: sample.target,
     isValid: true,
   };
+}
+
+function isLongPressTarget(target: HitTarget): boolean {
+  return target.kind === "canvas" || target.kind === "node";
 }
 
 function distance(from: { x: number; y: number }, to: { x: number; y: number }): number {

@@ -11,25 +11,36 @@ export interface MenuItem {
   onSelect(): void;
 }
 
+export interface MenuHandle {
+  close(): void;
+}
+
 export interface EmptySpaceMenuDeps {
   readonly canvasElement: HTMLElement;
   readonly addNodeLabel: string;
   getCamera(): Camera;
-  showMenu(items: readonly MenuItem[], at: ScreenPoint): void;
+  showMenu(items: readonly MenuItem[], at: ScreenPoint): MenuHandle | void;
   commitPendingEdit(): void;
   createNode(command: (map: MindMap, id: NodeId) => MindMap): void;
 }
 
 export class EmptySpaceMenu {
+  private openMenu: MenuHandle | null = null;
+
   constructor(private readonly deps: EmptySpaceMenuDeps) {}
 
   requestMenu(target: HitTarget, point: ScreenPoint): void {
     if (target.kind !== "canvas") return;
     const mapPoint = this.mapPointAt(point);
-    this.deps.showMenu(
+    this.openMenu = this.deps.showMenu(
       [{ label: this.deps.addNodeLabel, onSelect: () => this.addRootAtMapPoint(mapPoint) }],
       this.clientPointOf(point),
-    );
+    ) ?? null;
+  }
+
+  close(): void {
+    this.openMenu?.close();
+    this.openMenu = null;
   }
 
   addRootAt(point: ScreenPoint): void {

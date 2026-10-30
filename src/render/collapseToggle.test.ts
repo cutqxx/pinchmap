@@ -5,7 +5,7 @@ import type { MindMap, NodeEntry } from "../model";
 import { computeLayout } from "../layout";
 import { MapRenderer } from "./mapRenderer";
 
-const UI = { editing: null, selectedId: null };
+const UI = { editing: null, selectedIds: new Set<string>() };
 const SIZE = { width: 80, height: 30 };
 
 let container: HTMLElement;

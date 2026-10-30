@@ -418,7 +418,7 @@ describe("GestureRecognizer mouse pan", () => {
       sample({ ...mouse, phase: "up", x: 300, y: 300, time: 100 }),
     ]);
 
-    expect(intents).toEqual([]);
+    expect(intents.filter((intent) => intent.type === "pan")).toEqual([]);
   });
 
   it("pans immediately on a middle-button drag without waiting for the threshold", () => {
@@ -489,7 +489,7 @@ describe("GestureRecognizer mouse pan", () => {
       sample({ ...mouse, phase: "move", x: 300, y: 300 }),
     ]);
 
-    expect(intents).toEqual([]);
+    expect(intents.filter((intent) => intent.type === "pan")).toEqual([]);
   });
 
   it("does not start a pan when Space is pressed after the left button went down", () => {
@@ -499,7 +499,7 @@ describe("GestureRecognizer mouse pan", () => {
 
     const intents = feed(recognizer, [sample({ ...mouse, phase: "move", x: 300, y: 300 })]);
 
-    expect(intents).toEqual([]);
+    expect(intents.filter((intent) => intent.type === "pan")).toEqual([]);
   });
 
   it("keeps panning when Space is released in the middle of a Space drag", () => {

@@ -188,7 +188,7 @@ describe("gestures after a long press", () => {
     press();
     vi.advanceTimersByTime(500);
 
-    expect(move({ x: 160, y: 140 })).toEqual([]);
+    expect(move({ x: 160, y: 140 }).filter((intent) => intent.type === "pan")).toEqual([]);
   });
 
   it("does not turn the next quick tap into a double tap", () => {

@@ -4,7 +4,7 @@ import { chooseSideForNewBranch, positionBelowRootTree } from "../layout";
 import type { LayoutResult, Size } from "../layout";
 import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, visibleStandIn, withSidesResolved } from "../model";
 import type { BranchDraft, MindMap, NodeColor, NodeId, RootPosition, Side } from "../model";
-import { selectionAfterDelete } from "./selection";
+import { selectionAfterDelete, topmostNodeIds } from "./selection";
 import type { Selection } from "./selection";
 import type { NewNodeOrigin } from "./textEditing";
 
@@ -66,12 +66,12 @@ export class NodeEdits {
   }
 
   addChildToSelection(): void {
-    const selectedId = this.deps.selection.current;
+    const selectedId = this.deps.selection.sole;
     if (selectedId !== null) this.addChildTo(selectedId);
   }
 
   addSiblingToSelection(): void {
-    const selectedId = this.deps.selection.current;
+    const selectedId = this.deps.selection.sole;
     if (selectedId !== null) this.addSiblingTo(selectedId);
   }
 
@@ -104,8 +104,18 @@ export class NodeEdits {
   }
 
   deleteSelection(): void {
-    const nodeId = this.deps.selection.current;
+    const { selection } = this.deps;
+    if (selection.isMultiple) return this.deleteBranches(selection.ids);
+    const nodeId = selection.current;
     if (nodeId !== null) this.deleteNode(nodeId);
+  }
+
+  /** One undo step removes all the branches; nothing stays selected afterwards. */
+  deleteBranches(nodeIds: readonly NodeId[]): void {
+    const branchRootIds = topmostNodeIds(this.displayMap, nodeIds.filter((id) => this.hasNode(id)));
+    this.deps.selection.set(null);
+    this.applyEdit((map) => branchRootIds.reduce((current, nodeId) => deleteBranch(current, { nodeId }), map));
+    this.deps.scheduleFrame();
   }
 
   deleteNode(nodeId: NodeId): void {
@@ -143,7 +153,7 @@ export class NodeEdits {
   }
 
   toggleCollapseOfSelection(): void {
-    const selectedId = this.deps.selection.current;
+    const selectedId = this.deps.selection.sole;
     if (selectedId !== null) this.toggleCollapseOf(selectedId);
   }
 
@@ -166,15 +176,15 @@ export class NodeEdits {
   }
 
   private moveSelectionOutOfHiddenBranch(): void {
-    const selectedId = this.deps.selection.current;
-    if (selectedId !== null) this.deps.selection.set(visibleStandIn(this.displayMap, selectedId));
+    const standIns = this.deps.selection.ids.map((id) => visibleStandIn(this.displayMap, id));
+    this.deps.selection.setMany(standIns);
   }
 
   private showRestoredMap(restored: MindMap): void {
-    const selectedId = this.deps.selection.current;
+    const selectedIds = this.deps.selection.ids;
     this.displayMap = restored;
-    const stillSelectedId = selectedId !== null && restored.nodes.has(selectedId) ? visibleStandIn(restored, selectedId) : null;
-    this.deps.selection.select(stillSelectedId);
+    const survivors = selectedIds.filter((id) => restored.nodes.has(id));
+    this.deps.selection.selectMany(survivors.map((id) => visibleStandIn(restored, id)));
     this.notifyHistoryChanged();
     this.deps.onMapChanged();
   }

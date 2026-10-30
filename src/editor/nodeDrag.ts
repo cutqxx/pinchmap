@@ -1,4 +1,4 @@
-import { moveRootKeepingOtherRoots, reparentNode, setNodePosition } from "../commands";
+import { moveNodeGroup, moveRootKeepingOtherRoots, reparentNode, setNodePosition } from "../commands";
 import type { Intent, ScreenPoint } from "../input";
 import { chooseSideForNewBranch, findDropTarget } from "../layout";
 import type { LayoutResult, Point, Size } from "../layout";
@@ -6,6 +6,7 @@ import type { ManualPosition, MindMap, NodeId, Side } from "../model";
 import { screenToMap } from "../viewport";
 import type { Camera } from "../viewport";
 import type { MapEdit } from "./nodeEdits";
+import { topmostNodeIds } from "./selection";
 
 export interface NodeDragDeps {
   getMap(): MindMap;
@@ -14,6 +15,7 @@ export interface NodeDragDeps {
   getCamera(): Camera;
   replaceDisplayMap(map: MindMap): void;
   applyEdit(edit: MapEdit): void;
+  getSelectedIds(): readonly NodeId[];
   selectNode(nodeId: NodeId): void;
   scheduleFrame(): void;
 }
@@ -22,6 +24,8 @@ interface ActiveDrag {
   readonly nodeId: NodeId;
   readonly mapBeforeDrag: MindMap;
   readonly startPosition: ManualPosition;
+  /** Pre-drag manual positions of the topmost selected nodes when the whole selection is dragged; null for a single node. */
+  readonly groupStartPositions: ReadonlyMap<NodeId, ManualPosition> | null;
   /** Pre-drag placements of all roots when a root is dragged; null for any other node. */
   readonly rootPlacements: ReadonlyMap<NodeId, Point> | null;
   latestPosition: ManualPosition;
@@ -42,9 +46,14 @@ export class NodeDrag {
     const mapBeforeDrag = this.deps.getMap();
     const startPosition = this.manualPositionOfCurrentPlacement(mapBeforeDrag, nodeId);
     if (startPosition === null) return;
-    this.deps.selectNode(nodeId);
-    const rootPlacements = this.rootPlacementsWhenDraggingRoot(mapBeforeDrag, nodeId);
-    this.active = { nodeId, mapBeforeDrag, startPosition, rootPlacements, latestPosition: startPosition, dropTargetId: null };
+    const groupStartPositions = this.groupStartPositionsWhenDraggingSelection(mapBeforeDrag, nodeId);
+    if (groupStartPositions === null) this.deps.selectNode(nodeId);
+    const movedIds = groupStartPositions === null ? [nodeId] : [...groupStartPositions.keys()];
+    const rootPlacements = this.rootPlacementsWhenMovingRoot(mapBeforeDrag, movedIds);
+    this.active = {
+      nodeId, mapBeforeDrag, startPosition, groupStartPositions, rootPlacements,
+      latestPosition: startPosition, dropTargetId: null,
+    };
   }
 
   dropTargetId(): NodeId | null {
@@ -59,7 +68,7 @@ export class NodeDrag {
       x: drag.startPosition.x + screenDx / zoom,
       y: drag.startPosition.y + screenDy / zoom,
     };
-    drag.dropTargetId = this.dropTargetAt(drag, pointer);
+    drag.dropTargetId = drag.groupStartPositions === null ? this.dropTargetAt(drag, pointer) : null;
     this.deps.replaceDisplayMap(this.mapWithLatestPosition(drag));
     this.deps.scheduleFrame();
   }
@@ -89,14 +98,34 @@ export class NodeDrag {
     return this.positionEdit(drag);
   }
 
-  private positionEdit({ nodeId, latestPosition: position, rootPlacements }: ActiveDrag): MapEdit {
+  private positionEdit(drag: ActiveDrag): MapEdit {
+    if (drag.groupStartPositions !== null) return this.groupMoveEdit(drag, drag.groupStartPositions);
+    const { nodeId, latestPosition: position, rootPlacements } = drag;
     if (rootPlacements === null) return (map) => setNodePosition(map, { nodeId, position });
     return (map) => moveRootKeepingOtherRoots(map, { nodeId, position, rootPlacements });
   }
 
-  private rootPlacementsWhenDraggingRoot(map: MindMap, nodeId: NodeId): ReadonlyMap<NodeId, Point> | null {
+  private groupMoveEdit(drag: ActiveDrag, startPositions: ReadonlyMap<NodeId, ManualPosition>): MapEdit {
+    const delta = { x: drag.latestPosition.x - drag.startPosition.x, y: drag.latestPosition.y - drag.startPosition.y };
+    const positions = new Map([...startPositions].map(([id, start]) => [id, { x: start.x + delta.x, y: start.y + delta.y }]));
+    const rootPlacements = drag.rootPlacements ?? new Map<NodeId, Point>();
+    return (map) => moveNodeGroup(map, { positions, rootPlacements });
+  }
+
+  /** Dragging a selected node moves the topmost selected nodes together; descendants follow their ancestor. */
+  private groupStartPositionsWhenDraggingSelection(map: MindMap, nodeId: NodeId): ReadonlyMap<NodeId, ManualPosition> | null {
+    const selectedIds = this.deps.getSelectedIds();
+    if (selectedIds.length < 2 || !selectedIds.includes(nodeId)) return null;
+    const starts = topmostNodeIds(map, selectedIds).flatMap((id) => {
+      const start = this.manualPositionOfCurrentPlacement(map, id);
+      return start === null ? [] : [[id, start] as const];
+    });
+    return new Map(starts);
+  }
+
+  private rootPlacementsWhenMovingRoot(map: MindMap, movedIds: readonly NodeId[]): ReadonlyMap<NodeId, Point> | null {
     const positions = this.deps.getLayout()?.positions;
-    if (positions === undefined || !map.rootIds.includes(nodeId)) return null;
+    if (positions === undefined || !movedIds.some((id) => map.rootIds.includes(id))) return null;
     return new Map(map.rootIds.flatMap((rootId) => {
       const placement = positions.get(rootId);
       return placement === undefined ? [] : [[rootId, placement] as const];

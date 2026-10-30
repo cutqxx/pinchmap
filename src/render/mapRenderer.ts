@@ -1,4 +1,4 @@
-import type { LayoutResult, Point, Size } from "../layout";
+import type { LayoutResult, Point, Rect, Size } from "../layout";
 import { effectiveColor, listHiddenNodeIds } from "../model";
 import type { MapNode, MindMap, NodeColor, NodeId } from "../model";
 import type { Camera } from "../viewport";
@@ -8,7 +8,7 @@ import { edgePath } from "./edgePath";
 
 export interface RenderUi {
   readonly editing: { readonly nodeId: NodeId; readonly draftText: string } | null;
-  readonly selectedId: NodeId | null;
+  readonly selectedIds: ReadonlySet<NodeId>;
   readonly dropTargetId?: NodeId | null;
 }
 
@@ -40,6 +40,7 @@ export class MapRenderer {
   readonly canvasElement: HTMLElement;
   private readonly worldElement: HTMLElement;
   private readonly edgesElement: SVGSVGElement;
+  private marqueeElement: HTMLElement | null = null;
   private readonly nodeElements = new Map<NodeId, HTMLElement>();
   private readonly edgeElements = new Map<NodeId, SVGPathElement>();
   private readonly sizes = new Map<NodeId, Size>();
@@ -79,6 +80,20 @@ export class MapRenderer {
   setCamera(camera: Camera): void {
     this.worldElement.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
     this.worldElement.style.setProperty("--pinchmap-zoom", String(camera.zoom));
+  }
+
+  /** Draws the selection rectangle in canvas pixels (not map units); null removes it. */
+  setMarquee(rect: Rect | null): void {
+    if (rect === null) {
+      this.marqueeElement?.remove();
+      this.marqueeElement = null;
+      return;
+    }
+    const element = this.marqueeElement ?? this.createMarqueeElement();
+    element.style.left = `${rect.x}px`;
+    element.style.top = `${rect.y}px`;
+    element.style.width = `${rect.width}px`;
+    element.style.height = `${rect.height}px`;
   }
 
   setGestureActive(isActive: boolean): void {
@@ -147,10 +162,10 @@ export class MapRenderer {
     }
     element.classList.toggle("is-editing", isEditing);
     element.classList.toggle("is-root", node.parentId === null);
-    const isSelected = ui.selectedId === node.id;
+    const isSelected = ui.selectedIds.has(node.id);
     element.classList.toggle("is-selected", isSelected);
     element.classList.toggle("pinchmap-node--drop-target", ui.dropTargetId === node.id);
-    this.syncAddButtons(element, node.id, isSelected && !isEditing);
+    this.syncAddButtons(element, node.id, isSelected && !isEditing && ui.selectedIds.size === 1);
     syncCollapseToggle(element, node, map, this.toggleLabels);
   }
 
@@ -190,6 +205,14 @@ export class MapRenderer {
     button.setAttribute("role", "button");
     button.setAttribute("aria-label", kind === "add-child" ? this.labels.addChild : this.labels.addSibling);
     return button;
+  }
+
+  private createMarqueeElement(): HTMLElement {
+    const element = this.canvasElement.ownerDocument.createElement("div");
+    element.className = "pinchmap-marquee";
+    this.canvasElement.appendChild(element);
+    this.marqueeElement = element;
+    return element;
   }
 
   private createNodeElement(id: NodeId): HTMLElement {

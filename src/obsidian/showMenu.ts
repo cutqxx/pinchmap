@@ -1,11 +1,16 @@
 import { Menu } from "obsidian";
-import type { MenuItem } from "../editor";
+import type { MenuHandle, MenuItem } from "../editor";
 import type { ScreenPoint } from "../input";
 
-export function showObsidianMenu(items: readonly MenuItem[], at: ScreenPoint): void {
+export function showObsidianMenu(items: readonly MenuItem[], at: ScreenPoint): MenuHandle {
   const menu = new Menu();
   items.forEach((entry) => menu.addItem((item) => describeItem(item, entry, at)));
+  let isOpen = true;
+  menu.onHide(() => {
+    isOpen = false;
+  });
   menu.showAtPosition(at);
+  return { close: () => (isOpen ? void menu.hide() : undefined) };
 }
 
 /**

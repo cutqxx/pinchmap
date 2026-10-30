@@ -49,7 +49,12 @@ function toSample(
     button: event.button,
     target: findHitTarget(event),
     isPrimary: event.isPrimary,
+    ...(isAdditive(event) ? { isAdditive: true } : {}),
   };
+}
+
+function isAdditive(event: PointerEvent): boolean {
+  return event.shiftKey || event.metaKey || event.ctrlKey;
 }
 
 function findHitTarget(event: PointerEvent): HitTarget {

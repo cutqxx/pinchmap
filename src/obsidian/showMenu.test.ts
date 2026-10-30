@@ -7,8 +7,18 @@ const fakes = vi.hoisted(() => {
     click: () => void;
   }
   const shown: { items: FakeItem[]; at: { x: number; y: number } }[] = [];
+  const hidden: { count: number } = { count: 0 };
   class FakeMenu {
     items: FakeItem[] = [];
+    private hideCallbacks: (() => void)[] = [];
+    onHide(callback: () => void): void {
+      this.hideCallbacks.push(callback);
+    }
+    hide(): this {
+      hidden.count++;
+      this.hideCallbacks.forEach((callback) => callback());
+      return this;
+    }
     addItem(configure: (item: unknown) => void): this {
       const entry: FakeItem = { title: "", checked: undefined, click: () => undefined };
       const item = {
@@ -33,7 +43,7 @@ const fakes = vi.hoisted(() => {
       shown.push({ items: this.items, at });
     }
   }
-  return { FakeMenu, shown };
+  return { FakeMenu, shown, hidden };
 });
 
 vi.mock("obsidian", () => ({ Menu: fakes.FakeMenu }));
@@ -42,6 +52,7 @@ import { showObsidianMenu } from "./showMenu";
 
 beforeEach(() => {
   fakes.shown.length = 0;
+  fakes.hidden.count = 0;
   vi.useFakeTimers();
 });
 
@@ -143,5 +154,24 @@ describe("showObsidianMenu submenu", () => {
     fakes.shown[1]?.items[1]?.click();
 
     expect(SUBMENU[1]?.onSelect).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("showObsidianMenu handle", () => {
+  it("hides the open menu when closed", () => {
+    const handle = showObsidianMenu([{ label: "Add node", onSelect: () => undefined }], { x: 0, y: 0 });
+
+    handle.close();
+
+    expect(fakes.hidden.count).toBe(1);
+  });
+
+  it("does not hide the menu a second time when closed twice", () => {
+    const handle = showObsidianMenu([{ label: "Add node", onSelect: () => undefined }], { x: 0, y: 0 });
+
+    handle.close();
+    handle.close();
+
+    expect(fakes.hidden.count).toBe(1);
   });
 });

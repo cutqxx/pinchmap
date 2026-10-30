@@ -1,4 +1,6 @@
-export type { Point, Size } from "./geometry";
+export type { Point, Rect, Size } from "./geometry";
+export { rectBetween } from "./geometry";
+export { nodesInsideRect } from "./nodesInsideRect";
 export { findDropTarget } from "./dropTarget";
 export { positionBelowRootTree } from "./rootPlacement";
 export { computeLayout, chooseSideForNewBranch, DEFAULT_SPACING } from "./computeLayout";

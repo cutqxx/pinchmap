@@ -152,6 +152,26 @@ describe("attachContextMenuSource while a touch pointer is active", () => {
     expect(samples).toEqual([]);
   });
 
+  it("ignores a contextmenu while an Apple Pencil is down, as the pen's long press is its own gesture", () => {
+    const samples: ContextMenuSample[] = [];
+    attachContextMenuSource(element, (s) => samples.push(s));
+    pointerEvent(element, "pointerdown", "pen");
+
+    const event = contextMenu(element, { clientX: 110, clientY: 70 });
+
+    expect(samples).toEqual([]);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("reports nothing for a contextmenu originating from a pen", () => {
+    const samples: ContextMenuSample[] = [];
+    attachContextMenuSource(element, (s) => samples.push(s));
+
+    contextMenu(element, { clientX: 110, clientY: 70, pointerType: "pen" });
+
+    expect(samples).toEqual([]);
+  });
+
   it("is not blocked by a mouse pointer being down", () => {
     const samples: ContextMenuSample[] = [];
     attachContextMenuSource(element, (s) => samples.push(s));

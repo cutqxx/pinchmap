@@ -117,3 +117,51 @@ describe("EmptySpaceMenu.addRootAt", () => {
     expect(createdRootPosition(1)).toEqual({ x: 25, y: 50 });
   });
 });
+
+describe("EmptySpaceMenu.close", () => {
+  function menuWithHandle(): { menu: EmptySpaceMenu; closed: () => number } {
+    let closes = 0;
+    const withHandle = new EmptySpaceMenu({
+      canvasElement: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } as HTMLElement,
+      addNodeLabel: "Add node",
+      getCamera: () => camera,
+      showMenu: () => ({ close: () => void (closes += 1) }),
+      commitPendingEdit: () => undefined,
+      createNode: () => undefined,
+    });
+    return { menu: withHandle, closed: () => closes };
+  }
+
+  it("closes the menu that was opened by the request", () => {
+    const { menu: opened, closed } = menuWithHandle();
+    opened.requestMenu(CANVAS, { x: 1, y: 1 });
+
+    opened.close();
+
+    expect(closed()).toBe(1);
+  });
+
+  it("closes the menu only once however often it is called", () => {
+    const { menu: opened, closed } = menuWithHandle();
+    opened.requestMenu(CANVAS, { x: 1, y: 1 });
+
+    opened.close();
+    opened.close();
+
+    expect(closed()).toBe(1);
+  });
+
+  it("does nothing when no menu was opened", () => {
+    const { menu: unopened, closed } = menuWithHandle();
+
+    unopened.close();
+
+    expect(closed()).toBe(0);
+  });
+
+  it("does nothing when the host returns no handle", () => {
+    menu.requestMenu(CANVAS, { x: 1, y: 1 });
+
+    expect(() => menu.close()).not.toThrow();
+  });
+});

@@ -278,3 +278,11 @@
   border-color: var(--interactive-accent);
   color: var(--text-normal);
 }
+
+.pinchmap-marquee {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--interactive-accent);
+  background-color: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  pointer-events: none;
+}

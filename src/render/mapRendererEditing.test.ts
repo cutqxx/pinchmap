@@ -10,7 +10,7 @@ function displayedText(draftText: string | null): string {
   document.body.appendChild(container);
   const renderer = new MapRenderer(container);
   const editing = draftText === null ? null : { nodeId: "r", draftText };
-  renderer.syncContent(MAP, { editing, selectedId: null });
+  renderer.syncContent(MAP, { editing, selectedIds: new Set<string>() });
   const text = container.querySelector(".pinchmap-node")?.firstElementChild?.textContent;
   container.remove();
   return text ?? "";

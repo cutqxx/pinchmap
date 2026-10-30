@@ -11,6 +11,8 @@ export { addRoot } from "./addRoot";
 export { History, DEFAULT_HISTORY_DEPTH } from "./history";
 export type { MoveRootArgs, SetNodePositionArgs } from "./moveNode";
 export { moveRootKeepingOtherRoots, setNodePosition } from "./moveNode";
+export type { MoveNodeGroupArgs } from "./moveNodeGroup";
+export { moveNodeGroup } from "./moveNodeGroup";
 export type { ReparentNodeArgs } from "./reparentNode";
 export { reparentNode, clearPositionsOfReparentedNodes } from "./reparentNode";
 export type { ResetNodeLayoutArgs } from "./resetLayout";

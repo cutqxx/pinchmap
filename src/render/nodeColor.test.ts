@@ -4,7 +4,7 @@ import { buildMindMap } from "../model";
 import type { MindMap, NodeEntry } from "../model";
 import { MapRenderer } from "./mapRenderer";
 
-const UI = { editing: null, selectedId: null };
+const UI = { editing: null, selectedIds: new Set<string>() };
 const ATTRIBUTE = "data-pinchmap-color";
 
 let container: HTMLElement;

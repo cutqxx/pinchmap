@@ -23,11 +23,19 @@ export function setNodePosition(map: MindMap, { nodeId, position }: SetNodePosit
  * auto-placed roots are stacked below the positioned ones, so they would otherwise jump.
  */
 export function moveRootKeepingOtherRoots(map: MindMap, { nodeId, position, rootPlacements }: MoveRootArgs): MindMap {
-  const withOthersPinned = map.rootIds.reduce((current, rootId) => {
+  const withOthersPinned = pinAutoPlacedRoots(map, rootPlacements, new Set([nodeId]));
+  return setNodePosition(withOthersPinned, { nodeId, position });
+}
+
+export function pinAutoPlacedRoots(
+  map: MindMap,
+  rootPlacements: ReadonlyMap<NodeId, ManualPosition>,
+  exceptIds: ReadonlySet<NodeId>,
+): MindMap {
+  return map.rootIds.reduce((current, rootId) => {
     const placement = rootPlacements.get(rootId);
     const isAutoPlaced = readManualPosition(getNode(current, rootId).state) === undefined;
-    const shouldPin = rootId !== nodeId && placement !== undefined && isAutoPlaced;
+    const shouldPin = !exceptIds.has(rootId) && placement !== undefined && isAutoPlaced;
     return shouldPin ? setNodePosition(current, { nodeId: rootId, position: placement }) : current;
   }, map);
-  return setNodePosition(withOthersPinned, { nodeId, position });
 }

@@ -1,4 +1,5 @@
 import { LongPressTimer } from "./longPressTimer";
+import { MarqueeTracker } from "./marqueeTracker";
 import { MultiFingerTap } from "./multiFingerTap";
 import { NodeDragTracker } from "./nodeDragTracker";
 import { advancePinch, involvesPointer, startPinch } from "./pinch";
@@ -22,6 +23,8 @@ export interface PointerSample {
   readonly target: HitTarget;
   /** DOM `isPrimary`: a primary touch starts a new touch sequence, so no other finger is down. */
   readonly isPrimary?: boolean;
+  /** Shift, Cmd or Ctrl was held: the press adds to or removes from the selection instead of replacing it. */
+  readonly isAdditive?: boolean;
 }
 
 export interface WheelSample {
@@ -37,7 +40,7 @@ export interface WheelSample {
 export type NavigationDirection = "up" | "down" | "left" | "right";
 
 export type Intent =
-  | { readonly type: "tap"; readonly target: HitTarget }
+  | { readonly type: "tap"; readonly target: HitTarget; readonly isAdditive?: true }
   | { readonly type: "doubleTap"; readonly target: HitTarget; readonly point: ScreenPoint }
   | { readonly type: "longPress"; readonly target: HitTarget; readonly point: ScreenPoint }
   | { readonly type: "contextMenu"; readonly target: HitTarget; readonly point: ScreenPoint }
@@ -52,6 +55,10 @@ export type Intent =
   | { readonly type: "nodeDrag"; readonly dx: number; readonly dy: number; readonly point: ScreenPoint }
   | { readonly type: "nodeDragEnd" }
   | { readonly type: "nodeDragCancel" }
+  | { readonly type: "marqueeStart"; readonly origin: ScreenPoint }
+  | { readonly type: "marqueeMove"; readonly point: ScreenPoint }
+  | { readonly type: "marqueeEnd" }
+  | { readonly type: "marqueeCancel" }
   | { readonly type: "wheelPan"; readonly dx: number; readonly dy: number }
   | { readonly type: "wheelZoom"; readonly center: ScreenPoint; readonly scaleDelta: number }
   | { readonly type: "gestureEnd" }
@@ -101,6 +108,7 @@ interface TapCandidate {
   readonly x: number;
   readonly y: number;
   readonly target: HitTarget;
+  readonly isAdditive: boolean;
   isValid: boolean;
 }
 
@@ -126,6 +134,7 @@ export class GestureRecognizer {
   private panDrag: PanDrag | null = null;
   private pinch: PinchState | null = null;
   private readonly nodeDrag = new NodeDragTracker();
+  private readonly marquee = new MarqueeTracker();
   private isSpaceHeld = false;
   private readonly activePointerIds = new Set<number>();
   private readonly touchPoints = new Map<number, ScreenPoint>();
@@ -162,8 +171,15 @@ export class GestureRecognizer {
     return intent === null ? [] : [intent];
   }
 
+  /**
+   * macOS turns Ctrl+click into a context menu while the left button is still down: that press must not
+   * also become a tap (Ctrl would toggle the node off behind its own menu) or a marquee.
+   */
   handleContextMenu(sample: ContextMenuSample): readonly Intent[] {
-    return [{ type: "contextMenu", target: sample.target, point: { x: sample.x, y: sample.y } }];
+    this.invalidateCandidate();
+    this.lastTap = null;
+    const marqueeCancel = this.marquee.cancelCurrent();
+    return [...marqueeCancel, { type: "contextMenu", target: sample.target, point: { x: sample.x, y: sample.y } }];
   }
 
   setLongPressMs(durationMs: number): void {
@@ -181,6 +197,7 @@ export class GestureRecognizer {
     this.panDrag = null;
     this.pinch = null;
     this.nodeDrag.clear();
+    this.marquee.clear();
     this.activePointerIds.clear();
     this.touchPoints.clear();
     this.multiFingerTap.reset();
@@ -197,6 +214,7 @@ export class GestureRecognizer {
     this.candidate = isPrimary ? startCandidate(sample) : null;
     this.panDrag = this.startPanDrag(sample);
     this.nodeDrag.begin(sample, this.isSpaceHeld);
+    this.marquee.beginMousePress(sample, this.isSpaceHeld);
     this.startLongPressIfEligible(sample);
     return staleIntents;
   }
@@ -223,13 +241,13 @@ export class GestureRecognizer {
   private onAdditionalPointer(): readonly Intent[] {
     this.invalidateCandidate();
     this.lastTap = null;
-    const nodeDragCancel = this.nodeDrag.cancelCurrent();
+    const dragCancel = [...this.nodeDrag.cancelCurrent(), ...this.marquee.cancelCurrent()];
     const wasPanning = this.endPanDrag();
     if (this.pinch === null && this.touchPoints.size === 2) {
       this.pinch = startPinch(this.touchPoints);
     }
     const gestureEnd: readonly Intent[] = wasPanning && this.pinch === null ? [{ type: "gestureEnd" }] : [];
-    return [...nodeDragCancel, ...gestureEnd];
+    return [...dragCancel, ...gestureEnd];
   }
 
   private startLongPressIfEligible(sample: PointerSample): void {
@@ -243,6 +261,9 @@ export class GestureRecognizer {
     this.lastTap = null;
     this.panDrag = null;
     this.nodeDrag.clear();
+    // The finger may have drifted (within the tap threshold) while held: the 8 px count from where the menu opened.
+    const restingPoint = this.touchPoints.get(sample.pointerId) ?? sample;
+    if (sample.target.kind === "canvas") this.marquee.armAfterLongPress({ ...sample, x: restingPoint.x, y: restingPoint.y });
     this.emit({ type: "longPress", target: sample.target, point: { x: sample.x, y: sample.y } });
   }
 
@@ -282,7 +303,11 @@ export class GestureRecognizer {
     this.invalidateCandidateBeyondThreshold(sample);
     this.multiFingerTap.move(sample.pointerId, sample);
     if (this.pinch !== null) return this.movePinch(sample);
-    return [...this.movePanDrag(sample), ...this.nodeDrag.move(sample, this.config.dragThresholdPx)];
+    return [
+      ...this.movePanDrag(sample),
+      ...this.nodeDrag.move(sample, this.config.dragThresholdPx),
+      ...this.marquee.move(sample, this.config.dragThresholdPx),
+    ];
   }
 
   private invalidateCandidateBeyondThreshold(sample: PointerSample): void {
@@ -321,6 +346,7 @@ export class GestureRecognizer {
     this.forgetPointer(sample.pointerId);
     const gestureEnd = [
       ...this.nodeDrag.finish(sample.pointerId, "nodeDragEnd"),
+      ...this.marquee.finish(sample.pointerId, "marqueeEnd"),
       ...this.finishGestureOf(sample.pointerId),
       ...this.finishMultiFingerTap(sample),
     ];
@@ -348,7 +374,11 @@ export class GestureRecognizer {
 
   private cancelPointer(pointerId: number): readonly Intent[] {
     this.forgetPointer(pointerId);
-    const gestureEnd = [...this.nodeDrag.finish(pointerId, "nodeDragCancel"), ...this.finishGestureOf(pointerId)];
+    const gestureEnd = [
+      ...this.nodeDrag.finish(pointerId, "nodeDragCancel"),
+      ...this.marquee.finish(pointerId, "marqueeCancel"),
+      ...this.finishGestureOf(pointerId),
+    ];
     this.longPressTimer.cancel();
     this.candidate = null;
     this.lastTap = null;
@@ -380,7 +410,7 @@ export class GestureRecognizer {
       return { type: "doubleTap", target: candidate.target, point: { x: sample.x, y: sample.y } };
     }
     this.lastTap = { x: sample.x, y: sample.y, time: sample.time };
-    return { type: "tap", target: candidate.target };
+    return candidate.isAdditive ? { type: "tap", target: candidate.target, isAdditive: true } : { type: "tap", target: candidate.target };
   }
 
   private isDoubleTap(previousTap: CompletedTap, sample: PointerSample): boolean {
@@ -397,6 +427,7 @@ function startCandidate(sample: PointerSample): TapCandidate {
     x: sample.x,
     y: sample.y,
     target: sample.target,
+    isAdditive: sample.isAdditive === true,
     isValid: true,
   };
 }

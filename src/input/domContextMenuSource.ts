@@ -7,7 +7,7 @@ export function attachContextMenuSource(
 ): () => void {
   const touchPointerIds = new Set<number>();
   const trackTouch = (event: PointerEvent): void => {
-    if (event.pointerType === "touch") touchPointerIds.add(event.pointerId);
+    if (isTouchLike(event.pointerType)) touchPointerIds.add(event.pointerId);
   };
   const untrackTouch = (event: PointerEvent): void => void touchPointerIds.delete(event.pointerId);
   const listener = (event: MouseEvent): void => {
@@ -34,5 +34,10 @@ export function attachContextMenuSource(
 }
 
 function isFromTouch(event: MouseEvent): boolean {
-  return (event as Partial<PointerEvent>).pointerType === "touch";
+  return isTouchLike((event as Partial<PointerEvent>).pointerType);
+}
+
+/** A pen (Apple Pencil) is handled like a finger: its long press already opens the menu. */
+function isTouchLike(pointerType: string | undefined): boolean {
+  return pointerType === "touch" || pointerType === "pen";
 }

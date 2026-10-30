@@ -17,7 +17,8 @@ import { MapRenderer } from "../render";
 import type { AddButtonLabels, RenderUi } from "../render";
 import { CameraController, isCameraIntent } from "./cameraController";
 import { EmptySpaceMenu } from "./emptySpaceMenu";
-import type { MenuItem } from "./emptySpaceMenu";
+import type { MenuHandle, MenuItem } from "./emptySpaceMenu";
+import { MarqueeSelection } from "./marqueeSelection";
 import { DEFAULT_NODE_MENU_LABELS, NodeMenu } from "./nodeMenu";
 import type { NodeMenuLabels } from "./nodeMenu";
 import { NodeDrag, isNodeDragIntent } from "./nodeDrag";
@@ -32,12 +33,12 @@ import { TextEditing } from "./textEditing";
 import { ViewShortcuts } from "./viewShortcuts";
 import type { VisibleAreaSource } from "./visibleArea";
 
-export type { MenuItem, BranchClipboard };
+export type { MenuHandle, MenuItem, BranchClipboard };
 
 export interface MapHost {
   onMapChanged(): void;
   onHistoryChanged?(canUndo: boolean, canRedo: boolean): void;
-  showMenu(items: readonly MenuItem[], at: ScreenPoint): void;
+  showMenu(items: readonly MenuItem[], at: ScreenPoint): MenuHandle | void;
   onTextEditEnded(): void;
   notify(message: string): void;
 }
@@ -67,6 +68,7 @@ export class MapEditor {
   private readonly emptySpaceMenu: EmptySpaceMenu;
   private readonly nodeMenu: NodeMenu;
   private readonly nodeDrag: NodeDrag;
+  private readonly marqueeSelection: MarqueeSelection;
   private readonly host: MapHost;
   private readonly requestFrame: (callback: () => void) => void;
   private readonly camera: CameraController;
@@ -115,6 +117,7 @@ export class MapEditor {
     this.emptySpaceMenu = this.createEmptySpaceMenu(addNodeLabel ?? "Add node");
     this.nodeMenu = this.createNodeMenu(nodeMenuLabels ?? DEFAULT_NODE_MENU_LABELS);
     this.nodeDrag = this.createNodeDrag();
+    this.marqueeSelection = this.createMarqueeSelection();
     this.detachInput = this.attachInput(this.renderer.canvasElement);
     this.resizeObserver = new ResizeObserver(() => this.scheduleFrame());
     this.resizeObserver.observe(container);
@@ -145,6 +148,7 @@ export class MapEditor {
   private showLoadedMap(map: MindMap): void {
     this.textEditing.cancel();
     this.nodeDrag.cancel();
+    this.marqueeSelection.cancel();
     this.nodeEdits.replaceDisplayMap(map);
     this.nodeEdits.clearHistory();
     this.selection.set(null);
@@ -193,15 +197,15 @@ export class MapEditor {
   duplicateSelectedBranch(): void {
     if (this.isEditingText()) return;
     this.nodeDrag.cancel();
-    this.branchTransfer.duplicate(this.selection.current);
+    this.branchTransfer.duplicate(this.selection.sole);
   }
 
   hasSelection(): boolean {
-    return this.selection.current !== null;
+    return this.selection.sole !== null;
   }
 
   resetSelectedNodeLayout(): void {
-    const selectedId = this.selection.current;
+    const selectedId = this.selection.sole;
     this.nodeDrag.cancel();
     if (selectedId !== null) this.nodeEdits.resetNodeLayoutOf(selectedId);
   }
@@ -318,8 +322,21 @@ export class MapEditor {
       getCamera: () => this.camera.getCamera(),
       replaceDisplayMap: (map) => this.nodeEdits.replaceDisplayMap(map),
       applyEdit: (edit) => this.nodeEdits.applyEdit(edit),
+      getSelectedIds: () => this.selection.ids,
       selectNode: (nodeId) => this.selection.select(nodeId),
       scheduleFrame: () => this.scheduleFrame(),
+    });
+  }
+
+  private createMarqueeSelection(): MarqueeSelection {
+    return new MarqueeSelection({
+      getMap: () => this.nodeEdits.getDisplayMap(),
+      getLayout: () => this.layout,
+      getSizes: () => this.sizes,
+      getCamera: () => this.camera.getCamera(),
+      showMarquee: (rect) => this.renderer.setMarquee(rect),
+      selectNodes: (nodeIds) => this.selection.selectMany(nodeIds),
+      closeMenu: () => this.emptySpaceMenu.close(),
     });
   }
 
@@ -354,7 +371,7 @@ export class MapEditor {
     this.commitPendingEdit();
     switch (intent.type) {
       case "tap":
-        return this.handleTap(intent.target);
+        return this.handleTap(intent.target, intent.isAdditive === true);
       case "doubleTap":
         return this.handleDoubleTap(intent.target, intent.point);
       case "longPress":
@@ -368,6 +385,14 @@ export class MapEditor {
         return this.nodeDrag.end();
       case "nodeDragCancel":
         return this.nodeDrag.cancel();
+      case "marqueeStart":
+        return this.marqueeSelection.start(intent.origin);
+      case "marqueeMove":
+        return this.marqueeSelection.move(intent.point);
+      case "marqueeEnd":
+        return this.marqueeSelection.end();
+      case "marqueeCancel":
+        return this.marqueeSelection.cancel();
       case "toggleCollapse":
         return this.nodeEdits.toggleCollapseOfSelection();
       case "addChild":
@@ -387,11 +412,11 @@ export class MapEditor {
       case "zoomStep":
         return this.zoomStep(intent.direction);
       case "copyBranch":
-        return this.branchTransfer.copy(this.selection.current);
+        return this.ifSingleSelection(() => this.branchTransfer.copy(this.selection.current));
       case "pasteBranch":
-        return this.branchTransfer.paste(this.selection.current);
+        return this.ifSingleSelection(() => this.branchTransfer.paste(this.selection.current));
       case "duplicateBranch":
-        return this.branchTransfer.duplicate(this.selection.current);
+        return this.ifSingleSelection(() => this.branchTransfer.duplicate(this.selection.current));
       case "undo":
         return this.undo();
       case "redo":
@@ -412,10 +437,14 @@ export class MapEditor {
     }
   }
 
-  private handleTap(target: HitTarget): void {
+  private ifSingleSelection(action: () => void): void {
+    if (!this.selection.isMultiple) action();
+  }
+
+  private handleTap(target: HitTarget, isAdditive = false): void {
     switch (target.kind) {
       case "node":
-        return this.selection.select(target.nodeId);
+        return isAdditive ? this.selection.toggle(target.nodeId) : this.selection.select(target.nodeId);
       case "canvas":
         return this.selection.select(null);
       case "add-child":
@@ -447,7 +476,7 @@ export class MapEditor {
   }
 
   private editSelection(): void {
-    const selectedId = this.selection.current;
+    const selectedId = this.selection.sole;
     if (selectedId !== null) this.textEditing.beginEditing(selectedId, null);
   }
 
@@ -476,7 +505,7 @@ export class MapEditor {
   private currentRenderUi(): RenderUi {
     return {
       editing: this.textEditing.currentDraft(),
-      selectedId: this.selection.current,
+      selectedIds: new Set(this.selection.ids),
       dropTargetId: this.nodeDrag.dropTargetId(),
     };
   }

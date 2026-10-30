@@ -1,11 +1,14 @@
 import type { HitTarget, ScreenPoint } from "../input";
-import { getNode, isNodeCollapsed, readManualPosition } from "../model";
-import type { MindMap, NodeId } from "../model";
+import { NODE_COLORS, getNode, isNodeCollapsed, readColor, readManualPosition } from "../model";
+import type { MindMap, NodeColor, NodeId } from "../model";
 import type { MenuItem } from "./emptySpaceMenu";
 
 export interface NodeMenuLabels {
   readonly addChild: string;
   readonly addSibling: string;
+  readonly color: string;
+  readonly noColor: string;
+  readonly colorNames: Readonly<Record<NodeColor, string>>;
   readonly collapse: string;
   readonly expand: string;
   readonly resetLayout: string;
@@ -15,6 +18,9 @@ export interface NodeMenuLabels {
 export const DEFAULT_NODE_MENU_LABELS: NodeMenuLabels = {
   addChild: "Add child",
   addSibling: "Add sibling",
+  color: "Color",
+  noColor: "No color",
+  colorNames: { red: "Red", orange: "Orange", yellow: "Yellow", green: "Green", cyan: "Cyan", purple: "Purple" },
   collapse: "Collapse",
   expand: "Expand",
   resetLayout: "Reset to auto-layout",
@@ -24,9 +30,19 @@ export const DEFAULT_NODE_MENU_LABELS: NodeMenuLabels = {
 export interface NodeMenuActions {
   addChildTo(nodeId: NodeId): void;
   addSiblingTo(nodeId: NodeId): void;
+  setColor(nodeId: NodeId, color: NodeColor | undefined): void;
   toggleCollapse(nodeId: NodeId): void;
   resetNodeLayout(nodeId: NodeId): void;
   deleteNode(nodeId: NodeId): void;
+}
+
+function colorItems(map: MindMap, nodeId: NodeId, labels: NodeMenuLabels, actions: NodeMenuActions): readonly MenuItem[] {
+  const ownColor = readColor(getNode(map, nodeId).state);
+  const choose = (color: NodeColor | undefined) => () => actions.setColor(nodeId, color);
+  return [
+    ...NODE_COLORS.map((color) => ({ label: labels.colorNames[color], isChecked: ownColor === color, onSelect: choose(color) })),
+    { label: labels.noColor, isChecked: ownColor === undefined, onSelect: choose(undefined) },
+  ];
 }
 
 export function nodeMenuItems(
@@ -41,6 +57,7 @@ export function nodeMenuItems(
   return [
     { label: labels.addChild, onSelect: () => actions.addChildTo(nodeId) },
     { label: labels.addSibling, onSelect: () => actions.addSiblingTo(nodeId) },
+    { label: labels.color, onSelect: () => undefined, submenu: colorItems(map, nodeId, labels, actions) },
     ...(node.childIds.length > 0 ? [{ label: collapseLabel, onSelect: () => actions.toggleCollapse(nodeId) }] : []),
     ...(hasManualPosition ? [{ label: labels.resetLayout, onSelect: () => actions.resetNodeLayout(nodeId) }] : []),
     { label: labels.delete, onSelect: () => actions.deleteNode(nodeId) },

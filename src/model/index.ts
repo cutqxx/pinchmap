@@ -34,3 +34,5 @@ export {
   visibleStandIn,
   withCollapsed,
 } from "./collapse";
+export type { NodeColor } from "./color";
+export { NODE_COLORS, effectiveColor, readColor, withColor } from "./color";

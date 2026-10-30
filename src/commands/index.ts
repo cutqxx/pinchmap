@@ -17,3 +17,5 @@ export type { ResetNodeLayoutArgs } from "./resetLayout";
 export { resetNodeLayout, resetMapLayout } from "./resetLayout";
 export type { SetNodeCollapsedArgs, ToggleNodeCollapsedArgs } from "./collapse";
 export { setNodeCollapsed, toggleNodeCollapsed } from "./collapse";
+export type { SetNodeColorArgs } from "./color";
+export { setNodeColor } from "./color";

@@ -261,6 +261,7 @@ export class MapEditor {
       actions: {
         addChildTo: (nodeId) => this.nodeEdits.addChildTo(nodeId),
         addSiblingTo: (nodeId) => this.nodeEdits.addSiblingTo(nodeId),
+        setColor: (nodeId, color) => this.nodeEdits.setColorOf(nodeId, color),
         toggleCollapse: (nodeId) => this.nodeEdits.toggleCollapseOf(nodeId),
         resetNodeLayout: (nodeId) => this.nodeEdits.resetNodeLayoutOf(nodeId),
         deleteNode: (nodeId) => this.deleteNodeAndFocusCanvas(nodeId),

@@ -52,6 +52,11 @@ export class MapView extends TextFileView {
       addNodeLabel: t("addNode"),
       nodeMenuLabels: {
         addChild: t("addChild"), addSibling: t("addSibling"),
+        color: t("color"), noColor: t("noColor"),
+        colorNames: {
+          red: t("colorRed"), orange: t("colorOrange"), yellow: t("colorYellow"),
+          green: t("colorGreen"), cyan: t("colorCyan"), purple: t("colorPurple"),
+        },
         collapse: t("collapse"), expand: t("expand"),
         resetLayout: t("resetNodeLayout"),
         delete: t("delete"),

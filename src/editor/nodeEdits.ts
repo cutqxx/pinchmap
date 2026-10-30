@@ -1,8 +1,8 @@
-import { History, addChild, addSibling, deleteBranch, resetMapLayout, resetNodeLayout, toggleNodeCollapsed } from "../commands";
+import { History, addChild, addSibling, deleteBranch, resetMapLayout, resetNodeLayout, setNodeColor, toggleNodeCollapsed } from "../commands";
 import { chooseSideForNewBranch, positionBelowRootTree } from "../layout";
 import type { LayoutResult, Size } from "../layout";
 import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, visibleStandIn, withSidesResolved } from "../model";
-import type { MindMap, NodeId, RootPosition, Side } from "../model";
+import type { MindMap, NodeColor, NodeId, RootPosition, Side } from "../model";
 import { selectionAfterDelete } from "./selection";
 import type { Selection } from "./selection";
 import type { NewNodeOrigin } from "./textEditing";
@@ -116,6 +116,12 @@ export class NodeEdits {
 
   resetNodeLayoutOf(nodeId: NodeId): void {
     if (this.hasNode(nodeId)) this.applyEdit((map) => resetNodeLayout(map, { nodeId }));
+    this.deps.scheduleFrame();
+  }
+
+  setColorOf(nodeId: NodeId, color: NodeColor | undefined): void {
+    if (!this.hasNode(nodeId)) return;
+    this.applyEdit((map) => setNodeColor(map, { nodeId, color }));
     this.deps.scheduleFrame();
   }
 

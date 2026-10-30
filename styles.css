@@ -109,6 +109,49 @@
   outline-offset: 2px;
 }
 
+.pinchmap-node[data-pinchmap-color],
+.pinchmap-edge[data-pinchmap-color] {
+  --pinchmap-color: var(--interactive-accent);
+}
+
+.pinchmap-node[data-pinchmap-color="red"],
+.pinchmap-edge[data-pinchmap-color="red"] {
+  --pinchmap-color: var(--color-red);
+}
+
+.pinchmap-node[data-pinchmap-color="orange"],
+.pinchmap-edge[data-pinchmap-color="orange"] {
+  --pinchmap-color: var(--color-orange);
+}
+
+.pinchmap-node[data-pinchmap-color="yellow"],
+.pinchmap-edge[data-pinchmap-color="yellow"] {
+  --pinchmap-color: var(--color-yellow);
+}
+
+.pinchmap-node[data-pinchmap-color="green"],
+.pinchmap-edge[data-pinchmap-color="green"] {
+  --pinchmap-color: var(--color-green);
+}
+
+.pinchmap-node[data-pinchmap-color="cyan"],
+.pinchmap-edge[data-pinchmap-color="cyan"] {
+  --pinchmap-color: var(--color-cyan);
+}
+
+.pinchmap-node[data-pinchmap-color="purple"],
+.pinchmap-edge[data-pinchmap-color="purple"] {
+  --pinchmap-color: var(--color-purple);
+}
+
+.pinchmap-node[data-pinchmap-color] {
+  border-color: var(--pinchmap-color);
+}
+
+.pinchmap-edge[data-pinchmap-color] {
+  stroke: var(--pinchmap-color);
+}
+
 .pinchmap-add-button {
   position: absolute;
   display: flex;

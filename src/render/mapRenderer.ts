@@ -1,6 +1,6 @@
 import type { LayoutResult, Point, Size } from "../layout";
-import { listHiddenNodeIds } from "../model";
-import type { MapNode, MindMap, NodeId } from "../model";
+import { effectiveColor, listHiddenNodeIds } from "../model";
+import type { MapNode, MindMap, NodeColor, NodeId } from "../model";
 import type { Camera } from "../viewport";
 import { DEFAULT_COLLAPSE_TOGGLE_LABELS, syncCollapseToggle } from "./collapseToggle";
 import type { CollapseToggleLabels } from "./collapseToggle";
@@ -27,6 +27,8 @@ const DEFAULT_LABELS: AddButtonLabels = { addChild: "Add child", addSibling: "Ad
 
 const ADD_BUTTON_CLASS = "pinchmap-add-button";
 const ADD_BUTTON_KINDS = ["add-child", "add-sibling"] as const;
+
+const COLOR_ATTRIBUTE = "data-pinchmap-color";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
@@ -89,6 +91,7 @@ export class MapRenderer {
     for (const node of map.nodes.values()) {
       this.syncNodeElement(node, map, ui);
       this.ensureEdgeElement(node);
+      this.syncColor(node.id, effectiveColor(map, node.id));
       this.syncVisibility(node.id, !hiddenIds.has(node.id));
     }
   }
@@ -149,6 +152,13 @@ export class MapRenderer {
     element.classList.toggle("pinchmap-node--drop-target", ui.dropTargetId === node.id);
     this.syncAddButtons(element, node.id, isSelected && !isEditing);
     syncCollapseToggle(element, node, map, this.toggleLabels);
+  }
+
+  private syncColor(id: NodeId, color: NodeColor | undefined): void {
+    for (const element of [this.nodeElements.get(id), this.edgeElements.get(id)]) {
+      if (color === undefined) element?.removeAttribute(COLOR_ATTRIBUTE);
+      else element?.setAttribute(COLOR_ATTRIBUTE, color);
+    }
   }
 
   private syncVisibility(id: NodeId, isVisible: boolean): void {

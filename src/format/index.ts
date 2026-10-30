@@ -6,3 +6,5 @@ export { hasMindmapFlag } from "./frontmatter";
 export { buildNewMapText } from "./newMapFile";
 export { convertNoteToMap } from "./convertNoteToMap";
 export { pickFreeName } from "./untitledName";
+export { branchToMarkdown } from "./branchMarkdown";
+export { parsePastedBranches } from "./pastedBranches";

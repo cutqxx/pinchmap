@@ -24,13 +24,15 @@ import { NodeDrag, isNodeDragIntent } from "./nodeDrag";
 import { KeyboardAssist } from "./keyboardAssist";
 import { navigate } from "./navigation";
 import type { NavigationDirection } from "./navigation";
+import { BranchTransfer, UNAVAILABLE_BRANCH_CLIPBOARD } from "./branchTransfer";
+import type { BranchClipboard } from "./branchTransfer";
 import { NodeEdits } from "./nodeEdits";
 import { Selection } from "./selection";
 import { TextEditing } from "./textEditing";
 import { ViewShortcuts } from "./viewShortcuts";
 import type { VisibleAreaSource } from "./visibleArea";
 
-export type { MenuItem };
+export type { MenuItem, BranchClipboard };
 
 export interface MapHost {
   onMapChanged(): void;
@@ -50,6 +52,7 @@ export interface MapEditorOptions {
   readonly addNodeLabel?: string;
   readonly nodeMenuLabels?: NodeMenuLabels;
   readonly longPressSeconds?: number;
+  readonly clipboard?: BranchClipboard;
 }
 
 const MILLISECONDS_PER_SECOND = 1000;
@@ -59,6 +62,7 @@ export class MapEditor {
   private readonly recognizer: GestureRecognizer;
   private readonly selection: Selection;
   private readonly nodeEdits: NodeEdits;
+  private readonly branchTransfer: BranchTransfer;
   private readonly textEditing: TextEditing;
   private readonly emptySpaceMenu: EmptySpaceMenu;
   private readonly nodeMenu: NodeMenu;
@@ -74,6 +78,7 @@ export class MapEditor {
   private sizes: ReadonlyMap<NodeId, Size> = new Map();
   private isFramePending = false;
   private isDestroyed = false;
+  private mapSession = 0;
 
   constructor({
     container,
@@ -85,6 +90,7 @@ export class MapEditor {
     addNodeLabel,
     nodeMenuLabels,
     longPressSeconds,
+    clipboard,
   }: MapEditorOptions) {
     const view = container.ownerDocument.defaultView;
     this.host = host;
@@ -105,6 +111,7 @@ export class MapEditor {
     });
     this.nodeEdits = this.createNodeEdits();
     this.textEditing = this.createTextEditing();
+    this.branchTransfer = this.createBranchTransfer(clipboard ?? UNAVAILABLE_BRANCH_CLIPBOARD);
     this.emptySpaceMenu = this.createEmptySpaceMenu(addNodeLabel ?? "Add node");
     this.nodeMenu = this.createNodeMenu(nodeMenuLabels ?? DEFAULT_NODE_MENU_LABELS);
     this.nodeDrag = this.createNodeDrag();
@@ -127,6 +134,15 @@ export class MapEditor {
   }
 
   loadMap(map: MindMap): void {
+    this.mapSession++;
+    this.showLoadedMap(map);
+  }
+
+  reloadMap(map: MindMap): void {
+    this.showLoadedMap(clearPositionsOfReparentedNodes(this.nodeEdits.getDisplayMap(), map));
+  }
+
+  private showLoadedMap(map: MindMap): void {
     this.textEditing.cancel();
     this.nodeDrag.cancel();
     this.nodeEdits.replaceDisplayMap(map);
@@ -135,10 +151,6 @@ export class MapEditor {
     this.layout = null;
     this.sizes = new Map();
     this.scheduleFrame();
-  }
-
-  reloadMap(map: MindMap): void {
-    this.loadMap(clearPositionsOfReparentedNodes(this.nodeEdits.getDisplayMap(), map));
   }
 
   beginEditingNode(nodeId: NodeId): void {
@@ -176,6 +188,12 @@ export class MapEditor {
 
   zoomStep(direction: "in" | "out"): void {
     if (!this.isEditingText()) this.viewShortcuts.zoomStep(direction);
+  }
+
+  duplicateSelectedBranch(): void {
+    if (this.isEditingText()) return;
+    this.nodeDrag.cancel();
+    this.branchTransfer.duplicate(this.selection.current);
   }
 
   hasSelection(): boolean {
@@ -243,6 +261,22 @@ export class MapEditor {
     });
   }
 
+  private createBranchTransfer(clipboard: BranchClipboard): BranchTransfer {
+    return new BranchTransfer({
+      clipboard,
+      getMap: () => this.nodeEdits.getDisplayMap(),
+      pasteDrafts: (drafts, targetId) => {
+        // A drag started while the clipboard was read would otherwise overwrite the paste with its preview map.
+        this.nodeDrag.cancel();
+        this.nodeEdits.pasteDrafts(drafts, targetId);
+      },
+      duplicateBranch: (nodeId) => this.nodeEdits.duplicateBranchOf(nodeId),
+      commitPendingEdit: () => this.commitPendingEdit(),
+      isActive: () => !this.isDestroyed,
+      mapSession: () => this.mapSession,
+    });
+  }
+
   private createEmptySpaceMenu(addNodeLabel: string): EmptySpaceMenu {
     return new EmptySpaceMenu({
       canvasElement: this.renderer.canvasElement,
@@ -262,6 +296,9 @@ export class MapEditor {
         addChildTo: (nodeId) => this.nodeEdits.addChildTo(nodeId),
         addSiblingTo: (nodeId) => this.nodeEdits.addSiblingTo(nodeId),
         setColor: (nodeId, color) => this.nodeEdits.setColorOf(nodeId, color),
+        copyBranch: (nodeId) => this.branchTransfer.copy(nodeId),
+        pasteInto: (nodeId) => this.branchTransfer.paste(nodeId),
+        duplicateBranch: (nodeId) => this.branchTransfer.duplicate(nodeId),
         toggleCollapse: (nodeId) => this.nodeEdits.toggleCollapseOf(nodeId),
         resetNodeLayout: (nodeId) => this.nodeEdits.resetNodeLayoutOf(nodeId),
         deleteNode: (nodeId) => this.deleteNodeAndFocusCanvas(nodeId),
@@ -349,6 +386,12 @@ export class MapEditor {
         return this.fitToScreen();
       case "zoomStep":
         return this.zoomStep(intent.direction);
+      case "copyBranch":
+        return this.branchTransfer.copy(this.selection.current);
+      case "pasteBranch":
+        return this.branchTransfer.paste(this.selection.current);
+      case "duplicateBranch":
+        return this.branchTransfer.duplicate(this.selection.current);
       case "undo":
         return this.undo();
       case "redo":

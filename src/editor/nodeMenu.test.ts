@@ -10,7 +10,7 @@ const MAP = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },
 ]);
-const LABELS: NodeMenuLabels = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS: NodeMenuLabels = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, copy: "Копировать", paste: "Вставить", duplicate: "Дублировать", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 const NODE_A: HitTarget = { kind: "node", nodeId: "a" };
 
 let calls: string[];
@@ -24,6 +24,9 @@ beforeEach(() => {
     addChildTo: (id) => void calls.push(`addChild:${id}`),
     addSiblingTo: (id) => void calls.push(`addSibling:${id}`),
     setColor: (id, color) => void calls.push(`color:${id}:${color}`),
+    copyBranch: (id) => void calls.push(`copy:${id}`),
+    pasteInto: (id) => void calls.push(`paste:${id}`),
+    duplicateBranch: (id) => void calls.push(`duplicate:${id}`),
     toggleCollapse: (id) => void calls.push(`toggleCollapse:${id}`),
     resetNodeLayout: (id) => void calls.push(`reset:${id}`),
     deleteNode: (id) => void calls.push(`delete:${id}`),
@@ -34,19 +37,22 @@ describe("nodeMenuItems", () => {
   it("returns exactly addChild, addSibling, delete in that order with the injected labels", () => {
     const items = nodeMenuItems(MAP, "a", LABELS, actions);
 
-    expect(items.map((item) => item.label)).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Удалить"]);
+    expect(items.map((item) => item.label)).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Удалить"]);
   });
 
   it("uses whatever labels are injected", () => {
-    const items = nodeMenuItems(MAP, "a", { addChild: "x", addSibling: "y", color: "k", noColor: "n", colorNames: { red: "1", orange: "2", yellow: "3", green: "4", cyan: "5", purple: "6" }, collapse: "c", expand: "e", resetLayout: "r", delete: "z" }, actions);
+    const items = nodeMenuItems(MAP, "a", { addChild: "x", addSibling: "y", color: "k", noColor: "n", colorNames: { red: "1", orange: "2", yellow: "3", green: "4", cyan: "5", purple: "6" }, copy: "cp", paste: "ps", duplicate: "dp", collapse: "c", expand: "e", resetLayout: "r", delete: "z" }, actions);
 
-    expect(items.map((item) => item.label)).toEqual(["x", "y", "k", "z"]);
+    expect(items.map((item) => item.label)).toEqual(["x", "y", "k", "cp", "ps", "dp", "z"]);
   });
 
   it.each([
     [0, "addChild:a"],
     [1, "addSibling:a"],
-    [3, "delete:a"],
+    [3, "copy:a"],
+    [4, "paste:a"],
+    [5, "duplicate:a"],
+    [6, "delete:a"],
   ])("item %i calls only its action with the node id", (index, expectedCall) => {
     nodeMenuItems(MAP, "a", LABELS, actions)[index]?.onSelect();
 
@@ -91,13 +97,13 @@ describe("nodeMenuItems collapse item", () => {
   it("offers Collapse for an expanded node with children, between sibling and reset items", () => {
     const labels = nodeMenuItems(PARENT, "a", LABELS, actions).map((item) => item.label);
 
-    expect(labels).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Свернуть", "Сброс", "Удалить"]);
+    expect(labels).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Свернуть", "Сброс", "Удалить"]);
   });
 
   it("offers Expand instead of Collapse for a collapsed node", () => {
     const labels = nodeMenuItems(COLLAPSED_PARENT, "a", LABELS, actions).map((item) => item.label);
 
-    expect(labels).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Развернуть", "Сброс", "Удалить"]);
+    expect(labels).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Развернуть", "Сброс", "Удалить"]);
   });
 
   it("offers no collapse item for a node without children", () => {
@@ -108,7 +114,7 @@ describe("nodeMenuItems collapse item", () => {
   });
 
   it("toggles the node when the collapse item is chosen", () => {
-    nodeMenuItems(PARENT, "a", LABELS, actions)[3]?.onSelect();
+    nodeMenuItems(PARENT, "a", LABELS, actions)[6]?.onSelect();
 
     expect(calls).toEqual(["toggleCollapse:a"]);
   });
@@ -129,9 +135,9 @@ describe("NodeMenu", () => {
 
   it("offers the three node items for the pressed node", () => {
     newMenu().requestMenu(NODE_A, { x: 5, y: 6 });
-    shownMenus[0]?.items[3]?.onSelect();
+    shownMenus[0]?.items[6]?.onSelect();
 
-    expect(shownMenus[0]?.items.map((item) => item.label)).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Удалить"]);
+    expect(shownMenus[0]?.items.map((item) => item.label)).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Удалить"]);
     expect(calls).toContain("delete:a");
   });
 
@@ -232,7 +238,7 @@ describe("nodeMenuItems colour submenu", () => {
     ]);
 
     expect(nodeMenuItems(full, "a", LABELS, actions).map((item) => item.label)).toEqual([
-      "Добавить дочернюю", "Добавить соседнюю", "Цвет", "Свернуть", "Сброс", "Удалить",
+      "Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Свернуть", "Сброс", "Удалить",
     ]);
   });
 });

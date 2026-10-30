@@ -61,6 +61,9 @@ export type Intent =
   | { readonly type: "deleteSelection" }
   | { readonly type: "editSelection" }
   | { readonly type: "clearSelection" }
+  | { readonly type: "copyBranch" }
+  | { readonly type: "pasteBranch" }
+  | { readonly type: "duplicateBranch" }
   | { readonly type: "undo" }
   | { readonly type: "redo" }
   | { readonly type: "navigate"; readonly direction: NavigationDirection }

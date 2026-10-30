@@ -7,7 +7,7 @@ import { MapEditor } from "./mapEditor";
 import type { MenuItem } from "./mapEditor";
 
 const NODE_SIZE = { width: 80, height: 30 };
-const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, copy: "Копировать", paste: "Вставить", duplicate: "Дублировать", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 
 interface FakeHost {
   onMapChanged: Mock<() => void>;

@@ -7,7 +7,7 @@ import { MapEditor } from "./mapEditor";
 import type { MenuItem } from "./mapEditor";
 
 const NODE_SIZE = { width: 80, height: 30 };
-const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, copy: "Копировать", paste: "Вставить", duplicate: "Дублировать", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 
 interface FakeHost {
   onMapChanged: Mock<() => void>;
@@ -431,7 +431,7 @@ describe("MapEditor node menu collapse item", () => {
   it("offers Collapse before the reset item for a node with children", () => {
     openMap(SAMPLE);
 
-    expect(openNodeMenu("a")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Свернуть", "Удалить"]);
+    expect(openNodeMenu("a")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Свернуть", "Удалить"]);
   });
 
   it("offers Expand once the node is collapsed", () => {
@@ -444,7 +444,7 @@ describe("MapEditor node menu collapse item", () => {
   it("offers no collapse item for a leaf", () => {
     openMap(SAMPLE);
 
-    expect(openNodeMenu("b")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Удалить"]);
+    expect(openNodeMenu("b")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Удалить"]);
   });
 
   it("collapses the node when the item is chosen", () => {

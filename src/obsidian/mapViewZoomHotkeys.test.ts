@@ -59,13 +59,13 @@ describe("MapView zoom hotkeys", () => {
     expect(mocks.editor.zoomStep.mock.calls).toEqual([["in"], ["out"]]);
   });
 
-  it("registers all five chords on the view scope", () => {
+  it("registers all six chords on the view scope", () => {
     const { registered, scope } = scopeRecordingHandlers();
     mocks.scope = scope;
 
     new MapView({} as never, 0.5);
 
-    expect([...registered.keys()].sort()).toEqual(["Mod++", "Mod+-", "Mod+0", "Mod+=", "Mod+Shift++"].sort());
+    expect([...registered.keys()].sort()).toEqual(["Mod++", "Mod+-", "Mod+0", "Mod+=", "Mod+Shift++", "Mod+d"].sort());
   });
 
   it("opens without error when the view has no scope", () => {

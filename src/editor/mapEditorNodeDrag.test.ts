@@ -26,7 +26,7 @@ interface Pointer {
   readonly isPrimary?: boolean;
 }
 
-const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, copy: "Копировать", paste: "Вставить", duplicate: "Дублировать", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 const SAMPLE = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },
@@ -474,14 +474,14 @@ describe("MapEditor reset layout", () => {
     openMap(SAMPLE);
     drag("a", 60);
 
-    expect(openNodeMenu("a")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Свернуть", "Сброс", "Удалить"]);
+    expect(openNodeMenu("a")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Свернуть", "Сброс", "Удалить"]);
   });
 
   it("offers no reset item on a node that was not moved", () => {
     openMap(SAMPLE);
     drag("a", 60);
 
-    expect(openNodeMenu("b")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Удалить"]);
+    expect(openNodeMenu("b")).toEqual(["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Удалить"]);
   });
 
   it("puts the node back to the auto-layout place when the reset item is chosen", () => {

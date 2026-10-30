@@ -246,3 +246,47 @@ describe("keyToIntent collapse shortcut", () => {
     expect(keyToIntent(chord("/", { ctrlKey: true }), "editing")).toBeNull();
   });
 });
+
+describe("keyToIntent branch copy, paste and duplicate shortcuts", () => {
+  const INTENTS = [
+    ["c", "copyBranch", "KeyC", "с"],
+    ["v", "pasteBranch", "KeyV", "м"],
+    ["d", "duplicateBranch", "KeyD", "в"],
+  ] as const;
+
+  it.each(INTENTS.flatMap(([key, type]) => [["ctrlKey", key, type], ["metaKey", key, type]] as const))(
+    "maps %s with %s to %s",
+    (modifier, key, type) => {
+      expect(keyToIntent(chord(key, { [modifier]: true }), "navigate")).toEqual({ type });
+    },
+  );
+
+  it.each(INTENTS)("maps an upper-case %s the same way", (key, type) => {
+    expect(keyToIntent(chord(key.toUpperCase(), { ctrlKey: true }), "navigate")).toEqual({ type });
+  });
+
+  it.each(INTENTS)("maps the Cyrillic layout of Ctrl+%s through its physical key", (_key, type, code, cyrillic) => {
+    expect(keyToIntent(chord(cyrillic, { ctrlKey: true, code }), "navigate")).toEqual({ type });
+  });
+
+  it.each(INTENTS)("ignores Ctrl+Shift+%s", (key) => {
+    expect(keyToIntent(chord(key.toUpperCase(), { ctrlKey: true, shiftKey: true }), "navigate")).toBeNull();
+  });
+
+  it.each(INTENTS)("ignores Ctrl+Alt+%s", (key) => {
+    expect(keyToIntent(chord(key, { ctrlKey: true, altKey: true }), "navigate")).toBeNull();
+  });
+
+  it.each(INTENTS)("ignores %s without Ctrl or Meta", (key) => {
+    expect(keyToIntent(chord(key), "navigate")).toBeNull();
+  });
+
+  it.each(INTENTS)("leaves Ctrl+%s to the text input in editing mode", (key, _type, code) => {
+    expect(keyToIntent(chord(key, { ctrlKey: true, code }), "editing")).toBeNull();
+    expect(keyToIntent(chord(key, { metaKey: true, code }), "editing")).toBeNull();
+  });
+
+  it("does not map other Ctrl letters such as X", () => {
+    expect(keyToIntent(chord("x", { ctrlKey: true, code: "KeyX" }), "navigate")).toBeNull();
+  });
+});

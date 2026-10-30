@@ -9,6 +9,8 @@ import { createVisibleAreaSource } from "./visibleArea";
 import { showObsidianMenu } from "./showMenu";
 import { ExternalChangeGate } from "./externalChangeGate";
 import { registerViewZoomHotkeys } from "./viewZoomHotkeys";
+import { registerViewBranchHotkeys } from "./viewBranchHotkeys";
+import { createBranchClipboard, textClipboardOf } from "./branchClipboard";
 import { t } from "./i18n";
 
 export const MAP_VIEW_TYPE = "pinchmap-view";
@@ -57,11 +59,13 @@ export class MapView extends TextFileView {
           red: t("colorRed"), orange: t("colorOrange"), yellow: t("colorYellow"),
           green: t("colorGreen"), cyan: t("colorCyan"), purple: t("colorPurple"),
         },
+        copy: t("copy"), paste: t("paste"), duplicate: t("duplicate"),
         collapse: t("collapse"), expand: t("expand"),
         resetLayout: t("resetNodeLayout"),
         delete: t("delete"),
       },
       longPressSeconds,
+      clipboard: createBranchClipboard(textClipboardOf(this.contentEl.ownerDocument.defaultView ?? window)),
       labels: { addChild: t("addChild"), addSibling: t("addSibling"), collapse: t("collapse"), expand: t("expand") },
       host: {
         onMapChanged: () => this.autosave.schedule(),
@@ -74,7 +78,10 @@ export class MapView extends TextFileView {
     this.redoAction = this.addHistoryAction("redo-2", t("redo"), () => this.editor.redo());
     this.undoAction = this.addHistoryAction("undo-2", t("undo"), () => this.editor.undo());
     this.showHistoryAvailability(false, false);
-    if (this.scope) registerViewZoomHotkeys(this.scope, this.editor);
+    if (this.scope) {
+      registerViewZoomHotkeys(this.scope, this.editor);
+      registerViewBranchHotkeys(this.scope, this.editor);
+    }
     this.registerEvent(this.app.vault.on("modify", (file) => void this.handleVaultModify(file)));
   }
 

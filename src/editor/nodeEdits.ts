@@ -1,8 +1,9 @@
-import { History, addChild, addSibling, deleteBranch, resetMapLayout, resetNodeLayout, setNodeColor, toggleNodeCollapsed } from "../commands";
+import type { BranchEditResult } from "../commands";
+import { History, addChild, addSibling, deleteBranch, duplicateBranch, pasteBranch, resetMapLayout, resetNodeLayout, setNodeColor, toggleNodeCollapsed } from "../commands";
 import { chooseSideForNewBranch, positionBelowRootTree } from "../layout";
 import type { LayoutResult, Size } from "../layout";
 import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, visibleStandIn, withSidesResolved } from "../model";
-import type { MindMap, NodeColor, NodeId, RootPosition, Side } from "../model";
+import type { BranchDraft, MindMap, NodeColor, NodeId, RootPosition, Side } from "../model";
 import { selectionAfterDelete } from "./selection";
 import type { Selection } from "./selection";
 import type { NewNodeOrigin } from "./textEditing";
@@ -114,6 +115,17 @@ export class NodeEdits {
     this.deps.scheduleFrame();
   }
 
+  pasteDrafts(drafts: readonly BranchDraft[], targetId: NodeId | null): void {
+    if (targetId !== null && !this.hasNode(targetId)) return;
+    const layout = this.deps.getLayout();
+    const side = layout === null || targetId === null ? "right" : chooseSideForNewBranch(layout, targetId);
+    this.applyBranchEdit((map) => pasteBranch(map, { drafts, targetId, side }));
+  }
+
+  duplicateBranchOf(nodeId: NodeId): void {
+    if (this.hasNode(nodeId)) this.applyBranchEdit((map) => duplicateBranch(map, { nodeId }));
+  }
+
   resetNodeLayoutOf(nodeId: NodeId): void {
     if (this.hasNode(nodeId)) this.applyEdit((map) => resetNodeLayout(map, { nodeId }));
     this.deps.scheduleFrame();
@@ -139,6 +151,17 @@ export class NodeEdits {
     if (!this.hasNode(nodeId)) return;
     this.applyEdit((map) => toggleNodeCollapsed(map, { nodeId }));
     this.moveSelectionOutOfHiddenBranch();
+    this.deps.scheduleFrame();
+  }
+
+  private applyBranchEdit(edit: (map: MindMap) => BranchEditResult): void {
+    const created: { firstNodeId: NodeId | null } = { firstNodeId: null };
+    this.applyEdit((map) => {
+      const result = edit(map);
+      created.firstNodeId = result.firstNodeId;
+      return result.map;
+    });
+    if (created.firstNodeId !== null) this.deps.selection.select(created.firstNodeId);
     this.deps.scheduleFrame();
   }
 

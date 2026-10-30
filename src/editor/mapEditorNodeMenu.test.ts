@@ -12,7 +12,7 @@ class FakeResizeObserver {
 }
 
 const CANVAS_OFFSET = { left: 10, top: 20 };
-const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
+const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", color: "Цвет", noColor: "Без цвета", colorNames: { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", cyan: "Бирюзовый", purple: "Фиолетовый" }, copy: "Копировать", paste: "Вставить", duplicate: "Дублировать", collapse: "Свернуть", expand: "Развернуть", resetLayout: "Сброс", delete: "Удалить" };
 const SAMPLE = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },
@@ -145,7 +145,7 @@ function selectedIds(): string[] {
   );
 }
 
-const NODE_LABELS = ["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Удалить"];
+const NODE_LABELS = ["Добавить дочернюю", "Добавить соседнюю", "Цвет", "Копировать", "Вставить", "Дублировать", "Удалить"];
 
 describe("MapEditor node menu opening", () => {
   it("shows the three node items after a right click on a node", () => {

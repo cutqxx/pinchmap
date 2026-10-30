@@ -48,6 +48,12 @@ const COMMAND_SHORTCUTS: readonly CommandShortcut[] = [
   { keys: ["/"], codes: ["Slash", "NumpadDivide"], intent: { type: "toggleCollapse" } },
 ];
 
+const BRANCH_INTENTS: ReadonlyMap<string, Intent> = new Map<string, Intent>([
+  ["c", { type: "copyBranch" }],
+  ["v", { type: "pasteBranch" }],
+  ["d", { type: "duplicateBranch" }],
+]);
+
 const PRINTABLE_ASCII = /^[\x20-\x7e]$/;
 
 export function keyToIntent(chord: KeyChord, mode: KeyMode): Intent | null {
@@ -77,7 +83,7 @@ function commandIntent(chord: KeyChord): Intent | null {
   if (letter === "z")
     return chord.shiftKey ? { type: "redo" } : { type: "undo" };
   if (letter === "y" && !chord.shiftKey) return { type: "redo" };
-  return null;
+  return chord.shiftKey ? null : (BRANCH_INTENTS.get(letter) ?? null);
 }
 
 function commandLetter({ key, code }: KeyChord): string {

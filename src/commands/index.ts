@@ -19,3 +19,8 @@ export type { SetNodeCollapsedArgs, ToggleNodeCollapsedArgs } from "./collapse";
 export { setNodeCollapsed, toggleNodeCollapsed } from "./collapse";
 export type { SetNodeColorArgs } from "./color";
 export { setNodeColor } from "./color";
+export type { BranchEditResult } from "./branchEditResult";
+export type { PasteBranchArgs } from "./pasteBranch";
+export { pasteBranch } from "./pasteBranch";
+export type { DuplicateBranchArgs } from "./duplicateBranch";
+export { duplicateBranch } from "./duplicateBranch";

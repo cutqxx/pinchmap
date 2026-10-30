@@ -36,3 +36,6 @@ export {
 } from "./collapse";
 export type { NodeColor } from "./color";
 export { NODE_COLORS, effectiveColor, readColor, withColor } from "./color";
+export type { BranchDraft } from "./branchDraft";
+export type { BranchPlacement } from "./branchGraft";
+export { withBranchesAttached } from "./branchGraft";

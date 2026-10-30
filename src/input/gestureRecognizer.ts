@@ -1,5 +1,6 @@
 import { LongPressTimer } from "./longPressTimer";
 import { MultiFingerTap } from "./multiFingerTap";
+import { NodeDragTracker } from "./nodeDragTracker";
 import { advancePinch, involvesPointer, startPinch } from "./pinch";
 import type { PinchState, ScreenPoint } from "./pinch";
 import { wheelToIntent } from "./wheelIntent";
@@ -47,6 +48,10 @@ export type Intent =
       readonly centerDelta: ScreenPoint;
       readonly scaleDelta: number;
     }
+  | { readonly type: "nodeDragStart"; readonly nodeId: string }
+  | { readonly type: "nodeDrag"; readonly dx: number; readonly dy: number }
+  | { readonly type: "nodeDragEnd" }
+  | { readonly type: "nodeDragCancel" }
   | { readonly type: "wheelPan"; readonly dx: number; readonly dy: number }
   | { readonly type: "wheelZoom"; readonly center: ScreenPoint; readonly scaleDelta: number }
   | { readonly type: "gestureEnd" }
@@ -116,6 +121,7 @@ export class GestureRecognizer {
   private lastTap: CompletedTap | null = null;
   private panDrag: PanDrag | null = null;
   private pinch: PinchState | null = null;
+  private readonly nodeDrag = new NodeDragTracker();
   private isSpaceHeld = false;
   private readonly activePointerIds = new Set<number>();
   private readonly touchPoints = new Map<number, ScreenPoint>();
@@ -170,6 +176,7 @@ export class GestureRecognizer {
     this.lastTap = null;
     this.panDrag = null;
     this.pinch = null;
+    this.nodeDrag.clear();
     this.activePointerIds.clear();
     this.touchPoints.clear();
     this.multiFingerTap.reset();
@@ -185,6 +192,7 @@ export class GestureRecognizer {
     const isPrimary = sample.kind === "touch" || sample.button === PRIMARY_BUTTON;
     this.candidate = isPrimary ? startCandidate(sample) : null;
     this.panDrag = this.startPanDrag(sample);
+    this.nodeDrag.begin(sample, this.isSpaceHeld);
     this.startLongPressIfEligible(sample);
     return staleIntents;
   }
@@ -211,11 +219,13 @@ export class GestureRecognizer {
   private onAdditionalPointer(): readonly Intent[] {
     this.invalidateCandidate();
     this.lastTap = null;
+    const nodeDragCancel = this.nodeDrag.cancelCurrent();
     const wasPanning = this.endPanDrag();
     if (this.pinch === null && this.touchPoints.size === 2) {
       this.pinch = startPinch(this.touchPoints);
     }
-    return wasPanning && this.pinch === null ? [{ type: "gestureEnd" }] : [];
+    const gestureEnd: readonly Intent[] = wasPanning && this.pinch === null ? [{ type: "gestureEnd" }] : [];
+    return [...nodeDragCancel, ...gestureEnd];
   }
 
   private startLongPressIfEligible(sample: PointerSample): void {
@@ -228,6 +238,7 @@ export class GestureRecognizer {
     this.candidate.isValid = false;
     this.lastTap = null;
     this.panDrag = null;
+    this.nodeDrag.clear();
     this.emit({ type: "longPress", target: sample.target, point: { x: sample.x, y: sample.y } });
   }
 
@@ -267,7 +278,7 @@ export class GestureRecognizer {
     this.invalidateCandidateBeyondThreshold(sample);
     this.multiFingerTap.move(sample.pointerId, sample);
     if (this.pinch !== null) return this.movePinch(sample);
-    return this.movePanDrag(sample);
+    return [...this.movePanDrag(sample), ...this.nodeDrag.move(sample, this.config.dragThresholdPx)];
   }
 
   private invalidateCandidateBeyondThreshold(sample: PointerSample): void {
@@ -304,7 +315,11 @@ export class GestureRecognizer {
 
   private onUp(sample: PointerSample): readonly Intent[] {
     this.forgetPointer(sample.pointerId);
-    const gestureEnd = [...this.finishGestureOf(sample.pointerId), ...this.finishMultiFingerTap(sample)];
+    const gestureEnd = [
+      ...this.nodeDrag.finish(sample.pointerId, "nodeDragEnd"),
+      ...this.finishGestureOf(sample.pointerId),
+      ...this.finishMultiFingerTap(sample),
+    ];
     const candidate = this.candidate;
     if (candidate === null || candidate.pointerId !== sample.pointerId) return gestureEnd;
     this.longPressTimer.cancel();
@@ -329,7 +344,7 @@ export class GestureRecognizer {
 
   private cancelPointer(pointerId: number): readonly Intent[] {
     this.forgetPointer(pointerId);
-    const gestureEnd = this.finishGestureOf(pointerId);
+    const gestureEnd = [...this.nodeDrag.finish(pointerId, "nodeDragCancel"), ...this.finishGestureOf(pointerId)];
     this.longPressTimer.cancel();
     this.candidate = null;
     this.lastTap = null;

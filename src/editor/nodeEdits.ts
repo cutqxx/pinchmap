@@ -1,4 +1,4 @@
-import { History, addChild, addSibling, deleteBranch } from "../commands";
+import { History, addChild, addSibling, deleteBranch, resetMapLayout, resetNodeLayout } from "../commands";
 import { chooseSideForNewBranch, positionBelowRootTree } from "../layout";
 import type { LayoutResult, Size } from "../layout";
 import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, withSidesResolved } from "../model";
@@ -111,6 +111,16 @@ export class NodeEdits {
     if (!this.hasNode(nodeId)) return;
     this.deps.selection.set(selectionAfterDelete(this.displayMap, nodeId));
     this.applyEdit((map) => deleteBranch(map, { nodeId }));
+    this.deps.scheduleFrame();
+  }
+
+  resetNodeLayoutOf(nodeId: NodeId): void {
+    if (this.hasNode(nodeId)) this.applyEdit((map) => resetNodeLayout(map, { nodeId }));
+    this.deps.scheduleFrame();
+  }
+
+  resetMapLayout(): void {
+    this.applyEdit((map) => resetMapLayout(map));
     this.deps.scheduleFrame();
   }
 

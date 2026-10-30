@@ -1,8 +1,9 @@
-import { getNode, readRootPosition } from "../model";
+import { getNode, readManualPosition } from "../model";
 import type { MindMap, NodeId, Side } from "../model";
 import { measureBranchHeights } from "./blockHeights";
 import { pickSideForNewBranch, resolveRootSides } from "./branchSides";
 import type { SideHeights } from "./branchSides";
+import { applyManualPositions } from "./manualPositions";
 import type { Point, Size } from "./geometry";
 import { DEFAULT_SPACING } from "./spacing";
 import type { LayoutSpacing } from "./spacing";
@@ -35,9 +36,9 @@ export function computeLayout(
     sideHeights.set(rootId, resolved.heights);
     blockHeights.set(rootId, Math.max(sizeOf(rootId).height, resolved.heights.left, resolved.heights.right));
   }
-  const positions = new Map<NodeId, Point>();
-  placeRoots({ map, sizeOf, blockHeights, sides, spacing, positions });
-  return { positions, sides, sideHeights };
+  const autoPositions = new Map<NodeId, Point>();
+  placeRoots({ map, sizeOf, blockHeights, sides, spacing, positions: autoPositions });
+  return { positions: applyManualPositions(map, autoPositions), sides, sideHeights };
 }
 
 export function chooseSideForNewBranch(layout: LayoutResult, rootId: NodeId): Side {
@@ -47,7 +48,7 @@ export function chooseSideForNewBranch(layout: LayoutResult, rootId: NodeId): Si
 function placeRoots(context: PlacementContext): void {
   const { map, spacing } = context;
   const positionedRoots = map.rootIds.flatMap((rootId) => {
-    const position = readRootPosition(getNode(map, rootId).state);
+    const position = readManualPosition(getNode(map, rootId).state);
     return position === undefined ? [] : [{ rootId, position }];
   });
   const rootsWithoutPosition = map.rootIds.filter(

@@ -33,6 +33,7 @@ export default class PinchmapPlugin extends Plugin implements LongPressSettingSt
     this.register(opener.install());
     this.addSettingTab(new PinchmapSettingTab(this.app, this, this));
     this.addOpenAsMarkdownCommand(opener);
+    this.addResetLayoutCommands();
     this.addNewMapEntryPoints(notes);
     this.addConvertAndOpenAsMapEntryPoints(notes);
   }
@@ -51,6 +52,29 @@ export default class PinchmapPlugin extends Plugin implements LongPressSettingSt
         const view = this.app.workspace.getActiveViewOfType(MapView);
         if (view?.file == null) return false;
         if (!checking) void opener.openAsMarkdown(view.leaf, view.file.path);
+        return true;
+      },
+    });
+  }
+
+  private addResetLayoutCommands(): void {
+    this.addCommand({
+      id: "reset-node-layout",
+      name: t("resetNodeLayoutCommand"),
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(MapView);
+        if (view === null || !view.hasSelectedNode()) return false;
+        if (!checking) view.resetSelectedNodeLayout();
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "reset-map-layout",
+      name: t("resetMapLayoutCommand"),
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(MapView);
+        if (view === null) return false;
+        if (!checking) view.resetMapLayout();
         return true;
       },
     });

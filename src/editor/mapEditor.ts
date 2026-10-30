@@ -19,6 +19,7 @@ import { EmptySpaceMenu } from "./emptySpaceMenu";
 import type { MenuItem } from "./emptySpaceMenu";
 import { DEFAULT_NODE_MENU_LABELS, NodeMenu } from "./nodeMenu";
 import type { NodeMenuLabels } from "./nodeMenu";
+import { NodeDrag, isNodeDragIntent } from "./nodeDrag";
 import { KeyboardAssist } from "./keyboardAssist";
 import { navigate } from "./navigation";
 import type { NavigationDirection } from "./navigation";
@@ -60,6 +61,7 @@ export class MapEditor {
   private readonly textEditing: TextEditing;
   private readonly emptySpaceMenu: EmptySpaceMenu;
   private readonly nodeMenu: NodeMenu;
+  private readonly nodeDrag: NodeDrag;
   private readonly host: MapHost;
   private readonly requestFrame: (callback: () => void) => void;
   private readonly camera: CameraController;
@@ -104,6 +106,7 @@ export class MapEditor {
     this.textEditing = this.createTextEditing();
     this.emptySpaceMenu = this.createEmptySpaceMenu(addNodeLabel ?? "Add node");
     this.nodeMenu = this.createNodeMenu(nodeMenuLabels ?? DEFAULT_NODE_MENU_LABELS);
+    this.nodeDrag = this.createNodeDrag();
     this.detachInput = this.attachInput(this.renderer.canvasElement);
     this.resizeObserver = new ResizeObserver(() => this.scheduleFrame());
     this.resizeObserver.observe(container);
@@ -119,11 +122,12 @@ export class MapEditor {
   }
 
   getMap(): MindMap {
-    return this.textEditing.persistedMap();
+    return this.nodeDrag.committedMap() ?? this.textEditing.persistedMap();
   }
 
   loadMap(map: MindMap): void {
     this.textEditing.cancel();
+    this.nodeDrag.cancel();
     this.nodeEdits.replaceDisplayMap(map);
     this.nodeEdits.clearHistory();
     this.selection.set(null);
@@ -133,6 +137,7 @@ export class MapEditor {
   }
 
   beginEditingNode(nodeId: NodeId): void {
+    this.nodeDrag.cancel();
     if (!this.nodeEdits.getDisplayMap().nodes.has(nodeId)) return;
     this.selection.set(nodeId);
     this.renderFrame();
@@ -144,6 +149,7 @@ export class MapEditor {
    * nodes and edits of existing nodes are committed first, then undone.
    */
   undo(): void {
+    this.nodeDrag.cancel();
     const isDiscardingEmptyNewNode = this.textEditing.isEmptyNewNode();
     this.commitPendingEdit();
     if (!isDiscardingEmptyNewNode) this.nodeEdits.undo();
@@ -154,6 +160,7 @@ export class MapEditor {
    * then redoes.
    */
   redo(): void {
+    this.nodeDrag.cancel();
     this.commitPendingEdit();
     this.nodeEdits.redo();
   }
@@ -164,6 +171,21 @@ export class MapEditor {
 
   zoomStep(direction: "in" | "out"): void {
     if (!this.isEditingText()) this.viewShortcuts.zoomStep(direction);
+  }
+
+  hasSelection(): boolean {
+    return this.selection.current !== null;
+  }
+
+  resetSelectedNodeLayout(): void {
+    const selectedId = this.selection.current;
+    this.nodeDrag.cancel();
+    if (selectedId !== null) this.nodeEdits.resetNodeLayoutOf(selectedId);
+  }
+
+  resetMapLayout(): void {
+    this.nodeDrag.cancel();
+    this.nodeEdits.resetMapLayout();
   }
 
   setLongPressSeconds(seconds: number): void {
@@ -234,12 +256,25 @@ export class MapEditor {
       actions: {
         addChildTo: (nodeId) => this.nodeEdits.addChildTo(nodeId),
         addSiblingTo: (nodeId) => this.nodeEdits.addSiblingTo(nodeId),
+        resetNodeLayout: (nodeId) => this.nodeEdits.resetNodeLayoutOf(nodeId),
         deleteNode: (nodeId) => this.deleteNodeAndFocusCanvas(nodeId),
       },
       getMap: () => this.nodeEdits.getDisplayMap(),
       showMenu: (items, at) => this.host.showMenu(items, at),
       commitPendingEdit: () => this.commitPendingEdit(),
       selectNode: (nodeId) => this.selection.select(nodeId),
+    });
+  }
+
+  private createNodeDrag(): NodeDrag {
+    return new NodeDrag({
+      getMap: () => this.nodeEdits.getDisplayMap(),
+      getLayout: () => this.layout,
+      getZoom: () => this.camera.getCamera().zoom,
+      replaceDisplayMap: (map) => this.nodeEdits.replaceDisplayMap(map),
+      applyEdit: (edit) => this.nodeEdits.applyEdit(edit),
+      selectNode: (nodeId) => this.selection.select(nodeId),
+      scheduleFrame: () => this.scheduleFrame(),
     });
   }
 
@@ -269,6 +304,8 @@ export class MapEditor {
       this.camera.handle(intent);
       return;
     }
+    // Any other intent arriving mid-drag (a key, a right click) must not build on the preview map.
+    if (!isNodeDragIntent(intent)) this.nodeDrag.cancel();
     this.commitPendingEdit();
     switch (intent.type) {
       case "tap":
@@ -278,6 +315,14 @@ export class MapEditor {
       case "longPress":
       case "contextMenu":
         return this.openContextMenu(intent.target, intent.point);
+      case "nodeDragStart":
+        return this.nodeDrag.start(intent.nodeId);
+      case "nodeDrag":
+        return this.nodeDrag.move(intent.dx, intent.dy);
+      case "nodeDragEnd":
+        return this.nodeDrag.end();
+      case "nodeDragCancel":
+        return this.nodeDrag.cancel();
       case "addChild":
         return this.nodeEdits.addChildToSelection();
       case "addSibling":

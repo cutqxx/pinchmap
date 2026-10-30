@@ -10,7 +10,7 @@ const MAP = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },
 ]);
-const LABELS: NodeMenuLabels = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", delete: "Удалить" };
+const LABELS: NodeMenuLabels = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", resetLayout: "Сброс", delete: "Удалить" };
 const NODE_A: HitTarget = { kind: "node", nodeId: "a" };
 
 let calls: string[];
@@ -23,6 +23,7 @@ beforeEach(() => {
   actions = {
     addChildTo: (id) => void calls.push(`addChild:${id}`),
     addSiblingTo: (id) => void calls.push(`addSibling:${id}`),
+    resetNodeLayout: (id) => void calls.push(`reset:${id}`),
     deleteNode: (id) => void calls.push(`delete:${id}`),
   };
 });
@@ -35,7 +36,7 @@ describe("nodeMenuItems", () => {
   });
 
   it("uses whatever labels are injected", () => {
-    const items = nodeMenuItems(MAP, "a", { addChild: "x", addSibling: "y", delete: "z" }, actions);
+    const items = nodeMenuItems(MAP, "a", { addChild: "x", addSibling: "y", resetLayout: "r", delete: "z" }, actions);
 
     expect(items.map((item) => item.label)).toEqual(["x", "y", "z"]);
   });

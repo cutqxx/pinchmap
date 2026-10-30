@@ -402,7 +402,7 @@ describe("GestureRecognizer one-finger pan", () => {
       sample({ phase: "up", x: 200, y: 200, target: NODE_A, time: 100 }),
     ]);
 
-    expect(intents).toEqual([]);
+    expect(intents.filter((intent) => intent.type === "pan")).toEqual([]);
   });
 });
 

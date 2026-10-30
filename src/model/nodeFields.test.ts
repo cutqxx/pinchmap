@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readRootPosition, readSide, withRootPosition, withSide } from ".";
+import { readRootPosition, readSide, withRootPosition, withSide, withoutManualPosition } from ".";
 
 describe("readSide", () => {
   it("reads left when the state says left", () => {
@@ -113,5 +113,27 @@ describe("withRootPosition", () => {
 
   it("produces a state that readRootPosition reads back", () => {
     expect(readRootPosition(withRootPosition(undefined, { x: 3.5, y: -9 }))).toEqual({ x: 3.5, y: -9 });
+  });
+});
+
+describe("withoutManualPosition", () => {
+  it("removes x and y and keeps other fields", () => {
+    expect(withoutManualPosition({ x: 1, y: 2, side: "left", future: [1] })).toEqual({ side: "left", future: [1] });
+  });
+
+  it("returns undefined when only the position was in the state", () => {
+    expect(withoutManualPosition({ x: 1, y: 2 })).toBeUndefined();
+  });
+
+  it("returns undefined for no state", () => {
+    expect(withoutManualPosition(undefined)).toBeUndefined();
+  });
+
+  it("does not mutate the input state", () => {
+    const state = { x: 1, y: 2, side: "left" };
+
+    withoutManualPosition(state);
+
+    expect(state).toEqual({ x: 1, y: 2, side: "left" });
   });
 });

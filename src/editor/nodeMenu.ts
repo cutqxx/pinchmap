@@ -1,34 +1,40 @@
 import type { HitTarget, ScreenPoint } from "../input";
+import { getNode, readManualPosition } from "../model";
 import type { MindMap, NodeId } from "../model";
 import type { MenuItem } from "./emptySpaceMenu";
 
 export interface NodeMenuLabels {
   readonly addChild: string;
   readonly addSibling: string;
+  readonly resetLayout: string;
   readonly delete: string;
 }
 
 export const DEFAULT_NODE_MENU_LABELS: NodeMenuLabels = {
   addChild: "Add child",
   addSibling: "Add sibling",
+  resetLayout: "Reset to auto-layout",
   delete: "Delete",
 };
 
 export interface NodeMenuActions {
   addChildTo(nodeId: NodeId): void;
   addSiblingTo(nodeId: NodeId): void;
+  resetNodeLayout(nodeId: NodeId): void;
   deleteNode(nodeId: NodeId): void;
 }
 
 export function nodeMenuItems(
-  _map: MindMap,
+  map: MindMap,
   nodeId: NodeId,
   labels: NodeMenuLabels,
   actions: NodeMenuActions,
 ): readonly MenuItem[] {
+  const hasManualPosition = readManualPosition(getNode(map, nodeId).state) !== undefined;
   return [
     { label: labels.addChild, onSelect: () => actions.addChildTo(nodeId) },
     { label: labels.addSibling, onSelect: () => actions.addSiblingTo(nodeId) },
+    ...(hasManualPosition ? [{ label: labels.resetLayout, onSelect: () => actions.resetNodeLayout(nodeId) }] : []),
     { label: labels.delete, onSelect: () => actions.deleteNode(nodeId) },
   ];
 }

@@ -49,7 +49,11 @@ export class MapView extends TextFileView {
       visibleArea: createVisibleAreaSource(this.contentEl.ownerDocument.defaultView ?? window),
       doneLabel: t("done"),
       addNodeLabel: t("addNode"),
-      nodeMenuLabels: { addChild: t("addChild"), addSibling: t("addSibling"), delete: t("delete") },
+      nodeMenuLabels: {
+        addChild: t("addChild"), addSibling: t("addSibling"),
+        resetLayout: t("resetNodeLayout"),
+        delete: t("delete"),
+      },
       longPressSeconds,
       labels: { addChild: t("addChild"), addSibling: t("addSibling") },
       host: {
@@ -96,6 +100,18 @@ export class MapView extends TextFileView {
 
   setLongPressSeconds(seconds: number): void {
     this.editor.setLongPressSeconds(seconds);
+  }
+
+  hasSelectedNode(): boolean {
+    return this.editor.hasSelection();
+  }
+
+  resetSelectedNodeLayout(): void {
+    this.editor.resetSelectedNodeLayout();
+  }
+
+  resetMapLayout(): void {
+    this.editor.resetMapLayout();
   }
 
   beginEditingFirstRoot(): void {

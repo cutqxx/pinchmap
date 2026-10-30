@@ -62,6 +62,14 @@ export function withNodeText(map: MindMap, id: NodeId, text: string): MindMap {
   return { rootIds: map.rootIds, nodes };
 }
 
+export function withNodeState(map: MindMap, id: NodeId, state: NodeState | undefined): MindMap {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { state: _previousState, ...fields } = getNode(map, id);
+  const nodes = new Map(map.nodes);
+  nodes.set(id, state === undefined ? fields : { ...fields, state });
+  return { rootIds: map.rootIds, nodes };
+}
+
 export function withSidesResolved(map: MindMap, sides: ReadonlyMap<NodeId, Side>): MindMap {
   const pendingNodes = [...map.nodes.values()].filter((node) => node.isSidePending === true);
   if (pendingNodes.length === 0) return map;

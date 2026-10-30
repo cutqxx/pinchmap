@@ -9,3 +9,7 @@ export { deleteBranch } from "./deleteBranch";
 export type { AddRootArgs } from "./addRoot";
 export { addRoot } from "./addRoot";
 export { History, DEFAULT_HISTORY_DEPTH } from "./history";
+export type { SetNodePositionArgs } from "./moveNode";
+export { setNodePosition } from "./moveNode";
+export type { ResetNodeLayoutArgs } from "./resetLayout";
+export { resetNodeLayout, resetMapLayout } from "./resetLayout";

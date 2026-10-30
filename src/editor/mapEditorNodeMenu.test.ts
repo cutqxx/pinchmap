@@ -12,7 +12,7 @@ class FakeResizeObserver {
 }
 
 const CANVAS_OFFSET = { left: 10, top: 20 };
-const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", delete: "Удалить" };
+const LABELS = { addChild: "Добавить дочернюю", addSibling: "Добавить соседнюю", resetLayout: "Сброс", delete: "Удалить" };
 const SAMPLE = buildMindMap([
   { id: "r1", text: "Root", parentId: null },
   { id: "a", text: "A", parentId: "r1" },

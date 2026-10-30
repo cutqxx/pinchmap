@@ -6,6 +6,7 @@ export {
   buildMindMap,
   getNode,
   withNodeText,
+  withNodeState,
   withNewChild,
   withSidesResolved,
   listNodesInDocumentOrder,
@@ -13,7 +14,15 @@ export {
 export { canonicalNodeText, isEmptyNodeText } from "./nodeText";
 export type { JsonObject, JsonValue, NodeState } from "./nodeState";
 export { isJsonObject } from "./nodeState";
-export type { RootPosition, Side } from "./nodeFields";
-export { readRootPosition, readSide, withRootPosition, withSide } from "./nodeFields";
+export type { ManualPosition, RootPosition, Side } from "./nodeFields";
+export {
+  readManualPosition,
+  readRootPosition,
+  readSide,
+  withManualPosition,
+  withoutManualPosition,
+  withRootPosition,
+  withSide,
+} from "./nodeFields";
 export type { NewSiblingEntry } from "./branchEdits";
 export { withNewRoot, withNewSibling, withoutBranch } from "./branchEdits";

@@ -7,7 +7,7 @@
 
 **Mind maps for Obsidian that live in plain Markdown — and feel just as good under a finger as under a mouse.**
 
-A Pinchmap map is an ordinary `.md` note: a nested list plus a small hidden JSON block for layout. Open it as a map, pinch, drag and type; open it as Markdown and it is still a readable outline. Nothing is locked into a proprietary format, and the file survives any number of open → edit → save round trips without losing a byte outside the map.
+A Pinchmap map is an ordinary `.md` note: a nested list plus a small hidden JSON block for layout. Open it as a map, pinch, drag and type; open it as Markdown and it is still a readable outline. Nothing is locked into a proprietary format, and the file survives any number of open → edit → save round trips without changing a byte outside the map (except the node IDs added to the map's own list items).
 
 [Русская версия ниже ↓](#по-русски)
 
@@ -41,8 +41,9 @@ mindmap: true
 {
 "version": 1,
 "nodes": {
-"d4e5f6": {"x": 40, "y": -20, "pinned": true, "collapsed": true, "color": "red"}
-}
+"d4e5f6": {"x": 40, "y": -20, "collapsed": true, "color": "red"}
+},
+"style": {}
 }
 ```
 %%
@@ -78,14 +79,14 @@ Manual install: download `main.js`, `manifest.json` and `styles.css` from the [l
 | Edit text | double-tap | double-click, `F2` |
 | Finish editing | **Done** button, tap outside | `Esc`, Ctrl/Cmd + `Enter`, click outside |
 | Add child / sibling | **+** buttons | `Tab` / `Enter`, **+** buttons |
-| Add root | long-press empty space → **Add node** | right-click empty space → **Add node** |
+| Add root | double-tap empty space, or long-press empty space → **Add node** | double-click empty space, or right-click empty space → **Add node** |
 | Node menu | long-press node | right-click node |
 | Move / reparent | drag node (drop on another node to reparent) | same with mouse |
 | Collapse / expand | tap the toggle | click the toggle, Ctrl/Cmd + `/` |
 | Copy / paste / duplicate | node menu | Ctrl/Cmd + `C` / `V` / `D` |
-| Delete branch | node menu | `Delete` / `Backspace` |
+| Delete branch | node menu | `Delete` / `Backspace` (deleting the last node leaves one empty root) |
 | Multi-select | long-press empty space, then drag | drag on empty space, Shift/Cmd + click |
-| Undo / redo | undo / redo buttons in the view header | Ctrl/Cmd + `Z` / Ctrl/Cmd + Shift + `Z` or `Y`, header buttons |
+| Undo / redo | two-finger tap / three-finger tap on the canvas, undo / redo buttons in the view header | Ctrl/Cmd + `Z` / Ctrl/Cmd + Shift + `Z` or `Y`, header buttons |
 
 The long-press duration is configurable in the plugin settings (0.2–2.0 s).
 
@@ -111,9 +112,9 @@ npm run lint
 npm run build
 ```
 
-The code is split into framework-free modules — `model`, `format`, `commands`, `layout`, `viewport`, `input`, `render`, `editor` — with only `src/obsidian/` touching the Obsidian API. Boundaries are enforced by ESLint (see `.claude/BOUNDARIES.md`), and the core logic is covered by ~3300 Vitest tests. Specs and the manual test checklist live in [`docs/`](docs).
+The code is split into framework-free modules — `model`, `format`, `commands`, `layout`, `viewport`, `input`, `render`, `editor` — with only `src/obsidian/` touching the Obsidian API. Boundaries are enforced by ESLint (see `.claude/BOUNDARIES.md`), and the core logic is covered by ~3500 Vitest tests. Specs and the manual test checklist live in [`docs/`](docs).
 
-Every push to a release branch runs the tests and publishes a GitHub release named after `manifest.json`'s version, which BRAT picks up.
+Every push runs lint, the tests and the build. Only a push to `main` publishes: a GitHub release named after `manifest.json`'s version, which BRAT picks up. Other branches publish nothing. Bump the version to release new code: the workflow refuses to overwrite a release whose tag points at another commit.
 
 ## Roadmap
 

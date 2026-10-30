@@ -2,7 +2,7 @@ import type { BranchEditResult } from "../commands";
 import { History, addChild, addSibling, deleteBranch, duplicateBranch, pasteBranch, resetMapLayout, resetNodeLayout, setNodeColor, toggleNodeCollapsed } from "../commands";
 import { chooseSideForNewBranch, positionBelowRootTree } from "../layout";
 import type { LayoutResult, Size } from "../layout";
-import { EMPTY_MIND_MAP, generateNodeId, getNode, readRootPosition, visibleStandIn, withSidesResolved } from "../model";
+import { EMPTY_MIND_MAP, generateNodeId, getNode, isOnlyBlankRoot, readRootPosition, visibleStandIn, withSidesResolved } from "../model";
 import type { BranchDraft, MindMap, NodeColor, NodeId, RootPosition, Side } from "../model";
 import { selectionAfterDelete, topmostNodeIds } from "./selection";
 import type { Selection } from "./selection";
@@ -110,11 +110,12 @@ export class NodeEdits {
     if (nodeId !== null) this.deleteNode(nodeId);
   }
 
-  /** One undo step removes all the branches; nothing stays selected afterwards. */
+  /** One undo step removes all the branches; nothing stays selected afterwards unless one blank root is all that is left. */
   deleteBranches(nodeIds: readonly NodeId[]): void {
     const branchRootIds = topmostNodeIds(this.displayMap, nodeIds.filter((id) => this.hasNode(id)));
     this.deps.selection.set(null);
     this.applyEdit((map) => branchRootIds.reduce((current, nodeId) => deleteBranch(current, { nodeId }), map));
+    this.selectTheOnlyNodeLeft();
     this.deps.scheduleFrame();
   }
 
@@ -122,6 +123,7 @@ export class NodeEdits {
     if (!this.hasNode(nodeId)) return;
     this.deps.selection.set(selectionAfterDelete(this.displayMap, nodeId));
     this.applyEdit((map) => deleteBranch(map, { nodeId }));
+    this.selectTheOnlyNodeLeft();
     this.deps.scheduleFrame();
   }
 
@@ -162,6 +164,12 @@ export class NodeEdits {
     this.applyEdit((map) => toggleNodeCollapsed(map, { nodeId }));
     this.moveSelectionOutOfHiddenBranch();
     this.deps.scheduleFrame();
+  }
+
+  /** Deleting everything leaves one blank root (see deleteBranch); it stays selected, not open for editing. */
+  private selectTheOnlyNodeLeft(): void {
+    const [onlyRootId] = this.displayMap.rootIds;
+    if (onlyRootId !== undefined && isOnlyBlankRoot(this.displayMap)) this.deps.selection.set(onlyRootId);
   }
 
   private applyBranchEdit(edit: (map: MindMap) => BranchEditResult): void {

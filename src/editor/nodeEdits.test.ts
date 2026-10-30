@@ -102,3 +102,104 @@ describe("NodeEdits on an id missing from the map", () => {
     expect(frames).toBe(0);
   });
 });
+
+describe("NodeEdits when the last nodes are deleted", () => {
+  const TWO_TREES = buildMindMap([
+    { id: "r1", text: "One", parentId: null },
+    { id: "a", text: "A", parentId: "r1" },
+    { id: "r2", text: "Two", parentId: null, state: { color: "red" } },
+    { id: "r3", text: "Three", parentId: null },
+  ]);
+
+  function blankRootTexts(): string[] {
+    return [...edits.getDisplayMap().nodes.values()].map((node) => node.text);
+  }
+
+  it("keeps the deleted only root as a blank root and selects it", () => {
+    edits.replaceDisplayMap(buildMindMap([{ id: "only", text: "Only", parentId: null }]));
+
+    edits.deleteNode("only");
+
+    expect(edits.getDisplayMap().rootIds).toEqual(["only"]);
+    expect(blankRootTexts()).toEqual([""]);
+    expect(selection.ids).toEqual(["only"]);
+  });
+
+  it("reports one change when the only root is deleted", () => {
+    edits.replaceDisplayMap(buildMindMap([{ id: "only", text: "Only", parentId: null }]));
+
+    edits.deleteNode("only");
+
+    expect(changes).toBe(1);
+  });
+
+  it("reports no change and no history step when the blank root is deleted again", () => {
+    edits.replaceDisplayMap(buildMindMap([{ id: "only", text: "", parentId: null }]));
+
+    edits.deleteNode("only");
+    edits.undo();
+
+    expect(changes).toBe(0);
+    expect(blankRootTexts()).toEqual([""]);
+  });
+
+  it("leaves one blank root when every root is deleted together", () => {
+    edits.replaceDisplayMap(TWO_TREES);
+
+    edits.deleteBranches(["r1", "r2", "r3"]);
+
+    expect(edits.getDisplayMap().nodes.size).toBe(1);
+    expect(blankRootTexts()).toEqual([""]);
+    expect(selection.ids).toEqual(edits.getDisplayMap().rootIds);
+  });
+
+  it("deletes a parent and its selected descendants together down to one blank root", () => {
+    edits.replaceDisplayMap(buildMindMap([
+      { id: "r", text: "R", parentId: null },
+      { id: "c", text: "C", parentId: "r" },
+    ]));
+
+    edits.deleteBranches(["r", "c"]);
+
+    expect(edits.getDisplayMap().rootIds).toEqual(["r"]);
+    expect(blankRootTexts()).toEqual([""]);
+  });
+
+  it("restores everything, with state, in one undo step after deleting all roots together", () => {
+    edits.replaceDisplayMap(TWO_TREES);
+    edits.deleteBranches(["r1", "r2", "r3"]);
+
+    edits.undo();
+
+    expect(edits.getDisplayMap()).toEqual(TWO_TREES);
+  });
+
+  it("deletes all roots again on redo", () => {
+    edits.replaceDisplayMap(TWO_TREES);
+    edits.deleteBranches(["r1", "r2", "r3"]);
+    const afterDelete = edits.getDisplayMap();
+    edits.undo();
+
+    edits.redo();
+
+    expect(edits.getDisplayMap()).toEqual(afterDelete);
+  });
+
+  it("keeps selecting nothing when only some roots are deleted together", () => {
+    edits.replaceDisplayMap(TWO_TREES);
+    selection.set("r3");
+
+    edits.deleteBranches(["r1", "r3"]);
+
+    expect(edits.getDisplayMap().rootIds).toEqual(["r2"]);
+    expect(selection.ids).toEqual([]);
+  });
+
+  it("does not select the root of a map that was not emptied", () => {
+    edits.replaceDisplayMap(TWO_TREES);
+
+    edits.deleteNode("a");
+
+    expect(selection.ids).toEqual(["r1"]);
+  });
+});

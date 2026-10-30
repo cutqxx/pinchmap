@@ -34,6 +34,7 @@ const STRINGS = {
     convertToMap: "Convert this note to a map",
     openAsMap: "Open as map",
     mapActionFailed: "Pinchmap: the action failed. See the developer console for details.",
+    saveFailed: "Pinchmap: the map could not be saved. Your changes are kept and saving is retried.",
   },
   ru: {
     openAsMarkdown: "Открыть как Markdown",
@@ -70,6 +71,7 @@ const STRINGS = {
     convertToMap: "Превратить эту заметку в карту",
     openAsMap: "Открыть как карту",
     mapActionFailed: "Pinchmap: действие не удалось. Подробности в консоли разработчика.",
+    saveFailed: "Pinchmap: карту не удалось сохранить. Правки не потеряны, сохранение будет повторено.",
   },
 } as const;
 

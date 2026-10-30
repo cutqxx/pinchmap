@@ -1,9 +1,12 @@
 name: Release Obsidian plugin
 
-# Publishes a GitHub release named after manifest.json's version, so the
-# plugin can be installed on iPad/iPhone with BRAT. Pushing again with the
-# same version replaces the release assets; bump the version for BRAT to
-# offer an update.
+# Every push is linted, tested and built. Only a push to main publishes: the
+# stable GitHub release named after manifest.json's version, which BRAT users
+# install. Branch pushes (claude/**) publish nothing, so no build of
+# unreviewed work can ever be offered to BRAT users. Bump the version for BRAT
+# to offer an update: a release whose tag points at another commit is never
+# overwritten, the job fails instead; re-running the job for the same commit
+# re-uploads its files.
 on:
   push:
     branches:
@@ -29,18 +32,25 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci
+      - run: npm run lint
       - run: npm test
       - run: npm run build
 
-      - name: Create or update release
+      - name: Publish stable release
+        if: github.ref_name == 'main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(node -p "require('./manifest.json').version")
+          tag_sha=$(git ls-remote --tags origin | awk -v tag="refs/tags/$version" '$2 == tag "^{}" { peeled = $1 } $2 == tag { plain = $1 } END { print (peeled != "" ? peeled : plain) }')
+          if [ -n "$tag_sha" ] && [ "$tag_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::Tag $version already points at $tag_sha, not at $GITHUB_SHA. Bump the version to publish this commit."
+            exit 1
+          fi
           if gh release view "$version" >/dev/null 2>&1; then
             gh release upload "$version" main.js manifest.json styles.css --clobber
           else

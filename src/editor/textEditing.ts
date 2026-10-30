@@ -36,7 +36,8 @@ export interface TextEditingDeps {
 
 /**
  * One edit session = one change: the map is only edited when the session ends,
- * either by committing the final text or by discarding a new node left empty.
+ * either by committing the final text or by discarding a new node left empty
+ * (unless it is the only node of the map: a map keeps at least one, even blank, root).
  */
 export class TextEditing {
   private editing: EditingState | null = null;
@@ -100,7 +101,7 @@ export class TextEditing {
   private finishEditing(nodeId: NodeId, finalText: string, end: TextEditEnd): void {
     const newNode = this.editing?.newNode ?? null;
     this.editing = null;
-    if (newNode !== null && isEmptyNodeText(finalText)) {
+    if (newNode !== null && isEmptyNodeText(finalText) && newNode.mapBeforeCreation.nodes.size > 0) {
       this.discardNewNode(newNode);
     } else {
       this.commitText(nodeId, finalText, newNode?.mapBeforeCreation);

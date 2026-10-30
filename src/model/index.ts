@@ -25,7 +25,7 @@ export {
   withSide,
 } from "./nodeFields";
 export type { NewSiblingEntry } from "./branchEdits";
-export { withNewRoot, withNewSibling, withoutBranch, withMovedBranch } from "./branchEdits";
+export { withNewRoot, withNewSibling, withoutBranch, withOnlyBlankRoot, isOnlyBlankRoot, withMovedBranch } from "./branchEdits";
 export {
   countDescendants,
   isNodeCollapsed,

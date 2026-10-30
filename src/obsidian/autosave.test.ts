@@ -267,3 +267,152 @@ describe("createDebouncedSave", () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("createDebouncedSave retrying after a failed save", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function failingThenSucceeding(failures: number) {
+    let remaining = failures;
+    return vi.fn(() => (remaining-- > 0 ? Promise.reject(new Error("offline")) : Promise.resolve()));
+  }
+
+  it("tries again one delay after a failed save", async () => {
+    const save = failingThenSucceeding(1);
+    const autosave = createDebouncedSave(save, DELAY_MS);
+    autosave.schedule();
+    await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+    await vi.advanceTimersByTimeAsync(DELAY_MS - 1);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops retrying once a save succeeds", async () => {
+    const save = failingThenSucceeding(2);
+    const autosave = createDebouncedSave(save, DELAY_MS);
+    autosave.schedule();
+
+    await vi.advanceTimersByTimeAsync(10 * DELAY_MS);
+
+    expect(save).toHaveBeenCalledTimes(3);
+    expect(autosave.hasPending()).toBe(false);
+  });
+
+  it("keeps retrying every delay while saving keeps failing", async () => {
+    const save = vi.fn(() => Promise.reject(new Error("offline")));
+    const autosave = createDebouncedSave(save, DELAY_MS, () => undefined);
+    autosave.schedule();
+
+    await vi.advanceTimersByTimeAsync(5 * DELAY_MS);
+
+    expect(save).toHaveBeenCalledTimes(5);
+    expect(autosave.hasPending()).toBe(true);
+  });
+
+  it("reports a streak of failures to onError only once", async () => {
+    const onError = vi.fn();
+    const autosave = createDebouncedSave(() => Promise.reject(new Error("offline")), DELAY_MS, onError);
+    autosave.schedule();
+
+    await vi.advanceTimersByTimeAsync(6 * DELAY_MS);
+
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the error of the first failure of the streak", async () => {
+    const first = new Error("first");
+    const errors = [first, new Error("second")];
+    const onError = vi.fn();
+    const autosave = createDebouncedSave(() => Promise.reject(errors.shift() ?? new Error("later")), DELAY_MS, onError);
+    autosave.schedule();
+
+    await vi.advanceTimersByTimeAsync(4 * DELAY_MS);
+
+    expect(onError).toHaveBeenCalledExactlyOnceWith(first);
+  });
+
+  it("reports again when saving fails anew after a success", async () => {
+    const outcomes = ["fail", "ok", "fail"];
+    const save = vi.fn(() => (outcomes.shift() === "fail" ? Promise.reject(new Error("offline")) : Promise.resolve()));
+    const onError = vi.fn();
+    const autosave = createDebouncedSave(save, DELAY_MS, onError);
+
+    autosave.schedule();
+    await vi.advanceTimersByTimeAsync(2 * DELAY_MS);
+    expect(onError).toHaveBeenCalledTimes(1);
+
+    autosave.schedule();
+    await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+    expect(onError).toHaveBeenCalledTimes(2);
+  });
+
+  it("starts a full delay from a new edit made while a retry is waiting", async () => {
+    const save = failingThenSucceeding(1);
+    const autosave = createDebouncedSave(save, DELAY_MS);
+    autosave.schedule();
+    await vi.advanceTimersByTimeAsync(DELAY_MS);
+    await vi.advanceTimersByTimeAsync(600);
+
+    autosave.schedule();
+    await vi.advanceTimersByTimeAsync(DELAY_MS - 1);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a failed save that was cancelled while it ran", async () => {
+    let rejectSave: (error: Error) => void = () => undefined;
+    const save = vi.fn(() => new Promise<void>((_resolve, reject) => { rejectSave = reject; }));
+    const autosave = createDebouncedSave(save, DELAY_MS, () => undefined);
+    autosave.schedule();
+    await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+    autosave.cancel();
+    rejectSave(new Error("offline"));
+    await vi.advanceTimersByTimeAsync(5 * DELAY_MS);
+
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(autosave.hasPending()).toBe(false);
+  });
+
+  it("lets a failed flush be retried by the caller scheduling again", async () => {
+    const save = failingThenSucceeding(1);
+    const onError = vi.fn();
+    const autosave = createDebouncedSave(save, DELAY_MS, onError);
+    autosave.schedule();
+    await expect(autosave.flush()).rejects.toThrow("offline");
+
+    autosave.schedule();
+    await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("does not leave an unhandled rejection while retrying", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const autosave = createDebouncedSave(() => Promise.reject(new Error("boom")), DELAY_MS, () => undefined);
+      autosave.schedule();
+      await vi.advanceTimersByTimeAsync(3 * DELAY_MS);
+      autosave.cancel();
+      vi.useRealTimers();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+});

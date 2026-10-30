@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildMindMap, getNode } from ".";
 import type { MindMap } from ".";
-import { withNewRoot, withNewSibling, withoutBranch } from "./branchEdits";
+import { isOnlyBlankRoot, withNewRoot, withNewSibling, withOnlyBlankRoot, withoutBranch } from "./branchEdits";
 
 const map = buildMindMap([
   { id: "r1", text: "R1", parentId: null },
@@ -116,5 +116,61 @@ describe("withoutBranch", () => {
     expect(map.nodes.size).toBe(6);
     expect(map.rootIds).toEqual(["r1", "r2"]);
     expect(getNode(map, "r1").childIds).toEqual(["c1", "c2"]);
+  });
+});
+
+describe("withOnlyBlankRoot", () => {
+  it("reduces the map to the given root with empty text, no children and no state", () => {
+    const coloured = buildMindMap([
+      { id: "r1", text: "R1", parentId: null, state: { color: "red" } },
+      { id: "c1", text: "C1", parentId: "r1" },
+      { id: "r2", text: "R2", parentId: null },
+    ]);
+
+    const blank = withOnlyBlankRoot(coloured, "r2");
+
+    expect(blank.rootIds).toEqual(["r2"]);
+    expect([...blank.nodes.values()]).toEqual([{ id: "r2", text: "", parentId: null, childIds: [] }]);
+  });
+
+  it("does not change the map it was given", () => {
+    withOnlyBlankRoot(map, "r1");
+
+    expect(map.nodes.size).toBe(6);
+  });
+
+  it("throws for an id that is not in the map", () => {
+    expect(() => withOnlyBlankRoot(map, "missing")).toThrow();
+  });
+});
+
+describe("isOnlyBlankRoot", () => {
+  it("is true for one root with empty text and no state", () => {
+    expect(isOnlyBlankRoot(buildMindMap([{ id: "r", text: "", parentId: null }]))).toBe(true);
+  });
+
+  it("is false for an empty map", () => {
+    expect(isOnlyBlankRoot(buildMindMap([]))).toBe(false);
+  });
+
+  it("is false for a lone root with text", () => {
+    expect(isOnlyBlankRoot(buildMindMap([{ id: "r", text: "x", parentId: null }]))).toBe(false);
+  });
+
+  it("is false for a blank root that has a child", () => {
+    const parent = buildMindMap([
+      { id: "r", text: "", parentId: null },
+      { id: "c", text: "", parentId: "r" },
+    ]);
+
+    expect(isOnlyBlankRoot(parent)).toBe(false);
+  });
+
+  it("is false for two blank roots", () => {
+    expect(isOnlyBlankRoot(buildMindMap([{ id: "a", text: "", parentId: null }, { id: "b", text: "", parentId: null }]))).toBe(false);
+  });
+
+  it("is false for a blank root that carries state", () => {
+    expect(isOnlyBlankRoot(buildMindMap([{ id: "r", text: "", parentId: null, state: { x: 1, y: 1 } }]))).toBe(false);
   });
 });

@@ -78,3 +78,13 @@ describe("t undo and redo labels", () => {
     expect(t(key, "en")).toBe(en);
   });
 });
+
+describe("t saveFailed", () => {
+  it("tells Russian users that the map was not saved and saving is retried", () => {
+    expect(t("saveFailed", "ru")).toBe("Pinchmap: карту не удалось сохранить. Правки не потеряны, сохранение будет повторено.");
+  });
+
+  it("tells English users that the map was not saved and saving is retried", () => {
+    expect(t("saveFailed", "en")).toBe("Pinchmap: the map could not be saved. Your changes are kept and saving is retried.");
+  });
+});

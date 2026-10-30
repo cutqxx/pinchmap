@@ -28,7 +28,7 @@ export class MapView extends TextFileView {
   private readonly autosave = createDebouncedSave(
     () => this.saveUnlessReloadDeferred(),
     AUTOSAVE_DELAY_MS,
-    (error) => console.error("Pinchmap: autosave failed", error),
+    (error) => this.reportSaveFailure(error),
   );
   private parsedFile: ParsedMapFile = parseMapFile("");
   private readonly externalChanges = new ExternalChangeGate({
@@ -82,6 +82,7 @@ export class MapView extends TextFileView {
       registerViewZoomHotkeys(this.scope, this.editor);
       registerViewBranchHotkeys(this.scope, this.editor);
     }
+    this.registerAppBackgroundListeners();
     this.registerEvent(this.app.vault.on("modify", (file) => void this.handleVaultModify(file)));
   }
 
@@ -141,6 +142,26 @@ export class MapView extends TextFileView {
     this.editor.commitPendingEdit();
     await this.autosave.flush();
     await super.onUnloadFile(file);
+  }
+
+  private registerAppBackgroundListeners(): void {
+    const doc = this.contentEl.ownerDocument;
+    this.registerDomEvent(doc, "visibilitychange", () => {
+      if (doc.visibilityState === "hidden") this.commitEditAndSaveNow();
+    });
+    this.registerDomEvent(doc.defaultView ?? window, "pagehide", () => this.commitEditAndSaveNow());
+  }
+
+  /** The app may be unloaded once it is in the background, so nothing may wait for a blur or a timer. */
+  private commitEditAndSaveNow(): void {
+    this.editor.commitPendingEdit();
+    this.autosave.flush().catch(() => this.autosave.schedule());
+  }
+
+  private reportSaveFailure(error: unknown): void {
+    console.error("Pinchmap: autosave failed", error);
+    const reason = error instanceof Error ? error.message : String(error);
+    this.notify(`${t("saveFailed")} (${reason})`);
   }
 
   private addHistoryAction(icon: string, label: string, run: () => void): HTMLElement {

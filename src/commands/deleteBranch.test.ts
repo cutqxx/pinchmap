@@ -46,7 +46,7 @@ describe("deleteBranch", () => {
     expect([...updated.nodes.keys()].sort()).toEqual(["b1", "rootB"]);
   });
 
-  it("leaves an empty map after deleting the only root", () => {
+  it("keeps the deleted root, blank and childless, when it was the whole map", () => {
     const single = buildMindMap([
       { id: "r", text: "R", parentId: null },
       { id: "c", text: "C", parentId: "r" },
@@ -54,8 +54,8 @@ describe("deleteBranch", () => {
 
     const updated = deleteBranch(single, { nodeId: "r" });
 
-    expect(updated.rootIds).toEqual([]);
-    expect(updated.nodes.size).toBe(0);
+    expect(updated.rootIds).toEqual(["r"]);
+    expect([...updated.nodes.values()]).toEqual([{ id: "r", text: "", parentId: null, childIds: [] }]);
   });
 
   it("does not mutate the input map", () => {
@@ -69,5 +69,73 @@ describe("deleteBranch", () => {
 
   it("fails for an unknown id", () => {
     expect(() => deleteBranch(map, { nodeId: "nope" })).toThrow("Node not found: nope");
+  });
+
+  it("clears the position, colour and collapse state of a root that stays as the blank root", () => {
+    const single = buildMindMap([
+      { id: "r", text: "R", parentId: null, state: { x: 10, y: 20, color: "red", collapsed: true } },
+      { id: "c", text: "C", parentId: "r" },
+    ]);
+
+    const updated = deleteBranch(single, { nodeId: "r" });
+
+    expect(getNode(updated, "r")).toEqual({ id: "r", text: "", parentId: null, childIds: [] });
+  });
+
+  it("keeps the id of the root that was deleted, not another", () => {
+    const updated = deleteBranch(buildMindMap([{ id: "only", text: "Only", parentId: null }]), { nodeId: "only" });
+
+    expect(updated.rootIds).toEqual(["only"]);
+  });
+
+  it("returns the very same map when the map is already one blank root", () => {
+    const blank = buildMindMap([{ id: "r", text: "", parentId: null }]);
+
+    expect(deleteBranch(blank, { nodeId: "r" })).toBe(blank);
+  });
+
+  it("blanks a lone childless root that has no text but has a colour", () => {
+    const coloured = buildMindMap([{ id: "r", text: "", parentId: null, state: { color: "red" } }]);
+
+    const updated = deleteBranch(coloured, { nodeId: "r" });
+
+    expect(getNode(updated, "r").state).toBeUndefined();
+  });
+
+  it("keeps the other root unchanged when one of two roots is deleted", () => {
+    const two = buildMindMap([
+      { id: "r1", text: "One", parentId: null },
+      { id: "r2", text: "Two", parentId: null, state: { x: 1, y: 2 } },
+    ]);
+
+    const updated = deleteBranch(two, { nodeId: "r1" });
+
+    expect(updated.rootIds).toEqual(["r2"]);
+    expect(getNode(updated, "r2")).toEqual(getNode(two, "r2"));
+  });
+
+  it("deletes only the child, not the root, when the root has one child", () => {
+    const pair = buildMindMap([
+      { id: "r", text: "R", parentId: null },
+      { id: "c", text: "C", parentId: "r" },
+    ]);
+
+    const updated = deleteBranch(pair, { nodeId: "c" });
+
+    expect(getNode(updated, "r")).toEqual({ id: "r", text: "R", parentId: null, childIds: [] });
+  });
+
+  it("ends as one blank root of the last deleted root when every root is deleted in turn", () => {
+    const roots = buildMindMap([
+      { id: "r1", text: "One", parentId: null },
+      { id: "k1", text: "Kid", parentId: "r1" },
+      { id: "r2", text: "Two", parentId: null },
+      { id: "r3", text: "Three", parentId: null },
+    ]);
+
+    const updated = ["r1", "r2", "r3"].reduce((current, nodeId) => deleteBranch(current, { nodeId }), roots);
+
+    expect(updated.rootIds).toEqual(["r3"]);
+    expect([...updated.nodes.values()]).toEqual([{ id: "r3", text: "", parentId: null, childIds: [] }]);
   });
 });

@@ -7,7 +7,7 @@ import type { MindMap, NodeId } from "../model";
 const SEEDS = 40;
 const COMMANDS_PER_SEED = 12;
 
-const TEXTS = ["alpha", "beta gamma", "two\nlines", "", "- bullet", "--", "- -", "a - b", "line\n- not a child", "ends with caret ^", "code:\n```", "%%", "x\n%%", "```js\nconst a = 1;\n- not a child\n```", "```", "~~~\n- x", "a\n~~~~\n- y\n~~~~", "%%\nhidden\n%%", "* * *", "x\n* * *", "````\n```\n````"];
+const TEXTS = ["alpha", "beta gamma", "two\nlines", "", "- bullet", "--", "- -", "a - b", "line\n- not a child", "ends with caret ^", "code:\n```", "%%", "x\n%%", "```js\nconst a = 1;\n- not a child\n```", "```", "~~~\n- x", "a\n~~~~\n- y\n~~~~", "%%\nhidden\n%%", "* * *", "x\n* * *", "````\n```\n````", "x\n  - z", "x\nplain\n\t* t", "x\nplain\n    + deep\n  \\- kept"];
 
 const FILES = [
   "- a ^a1\n\t- b ^b2\n- c ^c3\n",

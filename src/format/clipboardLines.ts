@@ -1,19 +1,20 @@
 import { escapeBulletLikeLine, unescapeBulletLikeLine } from "./sourceLayout";
 
-const ORDERED_LIKE_LINE = /^(\d+)(\\*[.)][ \t])/;
-const ESCAPED_ORDERED_LIKE_LINE = /^(\d+)\\(\\*[.)][ \t])/;
-const BARE_BULLET_LINE = /^\\*[-*+]$/;
-const ESCAPED_BARE_BULLET_LINE = /^\\+[-*+]$/;
+const ORDERED_LIKE_LINE = /^([ \t]*\d+)(\\*[.)][ \t])/;
+const ESCAPED_ORDERED_LIKE_LINE = /^([ \t]*\d+)\\(\\*[.)][ \t])/;
+const BARE_BULLET_LINE = /^([ \t]*)(\\*[-*+])$/;
+const ESCAPED_BARE_BULLET_LINE = /^([ \t]*)\\(\\*[-*+])$/;
 
-/** A continuation line that the clipboard parser would read as a list item gets a backslash, like the file format does. */
+/**
+ * A continuation line that the clipboard parser would read as a list item gets a backslash, like the file format does.
+ * The backslash goes after any leading whitespace, since the parser also reads indented list lines as items.
+ */
 export function escapeContinuationLine(line: string): string {
-  const escaped = escapeBulletLikeLine(line).replace(ORDERED_LIKE_LINE, "$1\\$2");
-  return BARE_BULLET_LINE.test(escaped) ? `\\${escaped}` : escaped;
+  return escapeBulletLikeLine(line).replace(ORDERED_LIKE_LINE, "$1\\$2").replace(BARE_BULLET_LINE, "$1\\$2");
 }
 
 export function unescapeContinuationLine(line: string): string {
-  const unescaped = unescapeBulletLikeLine(line).replace(ESCAPED_ORDERED_LIKE_LINE, "$1$2");
-  return ESCAPED_BARE_BULLET_LINE.test(unescaped) ? unescaped.slice(1) : unescaped;
+  return unescapeBulletLikeLine(line).replace(ESCAPED_ORDERED_LIKE_LINE, "$1$2").replace(ESCAPED_BARE_BULLET_LINE, "$1$2");
 }
 
 const ID_LIKE_ENDING = /(^|[ \t])(\\*\^[A-Za-z0-9_-]+[ \t]*)$/;

@@ -154,6 +154,53 @@ describe("round trip of edited multi-line node text", () => {
     expect([...map.nodes.values()].map((node) => node.text)).toEqual(["one\n\\-two"]);
   });
 
+  it.each([
+    ["a space-indented dash", "x\nplain\n  - z", "- x ^h1\n  plain\n    \\- z\n"],
+    ["a tab-indented dash", "x\nplain\n\t- t", "- x ^h1\n  plain\n  \t\\- t\n"],
+    ["an indented star", "x\nplain\n    * deep", "- x ^h1\n  plain\n      \\* deep\n"],
+    ["an indented plus", "x\nplain\n  + p", "- x ^h1\n  plain\n    \\+ p\n"],
+  ])("escapes %s after its indent so it stays part of the node", (_name, text, expected) => {
+    const { map, source } = parseMapFile("- head ^h1\n- next ^n1\n");
+
+    const written = serializeMapFile(withNodeText(map, "h1", text), source);
+    const reread = parseMapFile(written).map;
+
+    expect(written).toBe(`${expected}- next ^n1\n`);
+    expect([...reread.nodes.values()].map((node) => node.text)).toEqual([text, "next"]);
+    expect(reread.rootIds).toEqual(["h1", "n1"]);
+  });
+
+  it("keeps an indented bullet-like line in the node when every extra line is indented", () => {
+    const { map, source } = parseMapFile("- head ^h1\n- next ^n1\n");
+
+    const written = serializeMapFile(withNodeText(map, "h1", "x\n  - z"), source);
+    const reread = parseMapFile(written).map;
+
+    expect(reread.nodes.size).toBe(2);
+    expect(getNode(reread, "h1").text).toBe("x\n- z");
+  });
+
+  it("reads an escaped indented bullet-like line with its indent and without the backslash", () => {
+    const { map } = parseMapFile("- one\n  plain\n    \\- two\n");
+
+    expect([...map.nodes.values()].map((node) => node.text)).toEqual(["one\nplain\n  - two"]);
+  });
+
+  it("keeps a user's own backslash before an indented bullet through an edit", () => {
+    const { map, source } = parseMapFile("- head ^h1\n");
+    const text = "x\nplain\n  \\- literal";
+
+    const written = serializeMapFile(withNodeText(map, "h1", text), source);
+
+    expect(getNode(parseMapFile(written).map, "h1").text).toBe(text);
+  });
+
+  it("does not treat an indented dash without a following space as a bullet", () => {
+    const { map } = parseMapFile("- one\n  plain\n    \\-two\n");
+
+    expect([...map.nodes.values()].map((node) => node.text)).toEqual(["one\nplain\n  \\-two"]);
+  });
+
   it("uses the indentation derived from the item prefix when edited text has mixed indentation", () => {
     const { map, source } = parseMapFile("- head ^h1\n        cont\n");
     const id = [...map.nodes.keys()][0] ?? "";

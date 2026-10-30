@@ -296,6 +296,15 @@ describe("attachPointerSource", () => {
     expect(samples[0]?.phase).toBe(phase);
   });
 
+  it.each([true, false])("passes isPrimary %s through", (isPrimary) => {
+    const samples: PointerSample[] = [];
+    attachPointerSource(element, (s) => samples.push(s));
+
+    dispatch(element, pointer("pointerdown", { pointerType: "touch", isPrimary }));
+
+    expect(samples[0]?.isPrimary).toBe(isPrimary);
+  });
+
   it("treats a pen as touch", () => {
     const samples: PointerSample[] = [];
     attachPointerSource(element, (s) => samples.push(s));

@@ -48,6 +48,7 @@ function toSample(
     time: event.timeStamp,
     button: event.button,
     target: findHitTarget(event),
+    isPrimary: event.isPrimary,
   };
 }
 

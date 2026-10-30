@@ -727,6 +727,48 @@ describe("GestureRecognizer lost pointer events", () => {
     expect(afterwards).toEqual([{ type: "pan", dx: 12, dy: 0 }]);
   });
 
+  it("pans, not pinches, with a new first finger after a touch whose release was lost", () => {
+    const recognizer = new GestureRecognizer();
+    feed(recognizer, [sample({ phase: "down", pointerId: 1, x: 300, y: 300, isPrimary: true })]);
+
+    const intents = feed(recognizer, [
+      sample({ phase: "down", pointerId: 2, x: 100, y: 100, time: 1000, isPrimary: true }),
+      sample({ phase: "move", pointerId: 2, x: 120, y: 100, time: 1010 }),
+      sample({ phase: "move", pointerId: 2, x: 140, y: 100, time: 1020 }),
+    ]);
+
+    expect(intents).toEqual([
+      { type: "pan", dx: 20, dy: 0 },
+      { type: "pan", dx: 20, dy: 0 },
+    ]);
+  });
+
+  it("ends a pan held by a lost touch when a new first finger lands", () => {
+    const recognizer = new GestureRecognizer();
+    feed(recognizer, [
+      sample({ phase: "down", pointerId: 1, isPrimary: true }),
+      sample({ phase: "move", pointerId: 1, x: 150 }),
+    ]);
+
+    const intents = feed(recognizer, [sample({ phase: "down", pointerId: 2, time: 1000, isPrimary: true })]);
+
+    expect(intents).toEqual([GESTURE_END]);
+  });
+
+  it("still pinches when the second finger is not primary", () => {
+    const recognizer = new GestureRecognizer();
+    feed(recognizer, [
+      sample({ phase: "down", pointerId: 1, x: 100, y: 100, isPrimary: true }),
+      sample({ phase: "down", pointerId: 2, x: 200, y: 100, isPrimary: false }),
+    ]);
+
+    const intents = feed(recognizer, [sample({ phase: "move", pointerId: 2, x: 300, y: 100 })]);
+
+    expect(intents).toEqual([
+      { type: "pinch", center: { x: 200, y: 100 }, centerDelta: { x: 50, y: 0 }, scaleDelta: 2 },
+    ]);
+  });
+
   it("ignores a cancel for a pointer that is not active", () => {
     const recognizer = new GestureRecognizer();
 

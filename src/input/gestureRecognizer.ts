@@ -19,6 +19,8 @@ export interface PointerSample {
   readonly time: number;
   readonly button: number;
   readonly target: HitTarget;
+  /** DOM `isPrimary`: a primary touch starts a new touch sequence, so no other finger is down. */
+  readonly isPrimary?: boolean;
 }
 
 export interface WheelSample {
@@ -174,7 +176,7 @@ export class GestureRecognizer {
   }
 
   private onDown(sample: PointerSample): readonly Intent[] {
-    const staleIntents = this.discardStalePress(sample.pointerId);
+    const staleIntents = [...this.discardStaleTouches(sample), ...this.discardStalePress(sample.pointerId)];
     const hadOtherPointers = this.activePointerIds.size > 0;
     this.activePointerIds.add(sample.pointerId);
     if (sample.kind === "touch") this.touchPoints.set(sample.pointerId, sample);
@@ -191,6 +193,14 @@ export class GestureRecognizer {
     if (sample.kind !== "touch") return this.multiFingerTap.invalidate();
     if (hadOtherPointers) return this.multiFingerTap.addFinger(sample.pointerId, sample, sample.time);
     this.multiFingerTap.startWith(sample.pointerId, sample, sample.time);
+  }
+
+  // A finger whose release never arrived (iOS can drop pointerup/pointercancel) would otherwise
+  // pair with the next single finger into a pinch, turning a one-finger pan into a zoom.
+  private discardStaleTouches(sample: PointerSample): readonly Intent[] {
+    if (sample.kind !== "touch" || sample.isPrimary !== true) return [];
+    const staleIds = [...this.touchPoints.keys()].filter((id) => id !== sample.pointerId);
+    return staleIds.flatMap((id) => this.cancelPointer(id));
   }
 
   private discardStalePress(pointerId: number): readonly Intent[] {

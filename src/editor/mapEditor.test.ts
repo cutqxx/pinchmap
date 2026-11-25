@@ -100,7 +100,7 @@ function typeAndCommit(text: string): void {
   const input = textarea();
   input.value = text;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  press("Enter", input, { ctrlKey: true });
+  press("Escape", input);
 }
 
 function selectedIds(): string[] {
@@ -889,7 +889,7 @@ describe("MapEditor keyboard shortcuts for text input", () => {
     press("F2");
     const nodeCount = editor.getMap().nodes.size;
 
-    press("Enter", textarea(), { ctrlKey: true });
+    press("Escape", textarea());
 
     expect(editor.getMap().nodes.size).toBe(nodeCount);
     expect(editor.isEditingText()).toBe(false);

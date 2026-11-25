@@ -1,7 +1,10 @@
 import { canonicalNodeText } from "../model";
 
+/** What the user asked for after the text: a new child (Tab) or a new sibling (Enter). */
+export type TextEditFollowUp = "addChild" | "addSibling";
+
 export type TextEditEnd =
-  | { readonly kind: "keyboard" }
+  | { readonly kind: "keyboard"; readonly followUp?: TextEditFollowUp }
   | { readonly kind: "programmatic" }
   | { readonly kind: "blur"; readonly focusTarget: EventTarget | null };
 
@@ -21,9 +24,33 @@ function isImeComposing(event: KeyboardEvent): boolean {
   return event.isComposing || event.keyCode === 229;
 }
 
-function isCommitChord(event: KeyboardEvent): boolean {
-  if (event.key === "Escape") return true;
-  return event.key === "Enter" && (event.ctrlKey || event.metaKey);
+type KeyAction = { readonly kind: "commit"; readonly end: TextEditEnd } | { readonly kind: "newline" } | null;
+
+/**
+ * Enter and Tab end the input and ask for a new sibling or child, like outside
+ * text input. A line break is Shift+Enter (left to the browser) or Ctrl/Cmd+Enter.
+ */
+function keyAction(event: KeyboardEvent): KeyAction {
+  const hasCommandModifier = event.ctrlKey || event.metaKey;
+  if (event.key === "Escape") return { kind: "commit", end: { kind: "keyboard" } };
+  if (event.key === "Enter") {
+    if (hasCommandModifier) return { kind: "newline" };
+    if (event.shiftKey || event.altKey) return null;
+    return { kind: "commit", end: { kind: "keyboard", followUp: "addSibling" } };
+  }
+  if (event.key === "Tab" && !event.shiftKey && !event.altKey && !hasCommandModifier) {
+    return { kind: "commit", end: { kind: "keyboard", followUp: "addChild" } };
+  }
+  return null;
+}
+
+function insertLineBreak(textarea: HTMLTextAreaElement): void {
+  // execCommand keeps the browser's own undo for the input; setRangeText is the fallback.
+  const doc = textarea.ownerDocument;
+  const isInserted = typeof doc.execCommand === "function" && doc.execCommand("insertText", false, "\n");
+  if (isInserted) return;
+  textarea.setRangeText("\n", textarea.selectionStart, textarea.selectionEnd, "end");
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 export function beginTextEdit(options: TextEditOptions): TextEditSession {
@@ -56,10 +83,12 @@ export function beginTextEdit(options: TextEditOptions): TextEditSession {
   );
   textarea.addEventListener("keydown", (event) => {
     if (isImeComposing(event)) return;
-    if (!isCommitChord(event)) return;
+    const action = keyAction(event);
+    if (action === null) return;
     event.preventDefault();
     event.stopPropagation();
-    commitEndedBy({ kind: "keyboard" });
+    if (action.kind === "newline") insertLineBreak(textarea);
+    else commitEndedBy(action.end);
   });
 
   nodeElement.appendChild(textarea);

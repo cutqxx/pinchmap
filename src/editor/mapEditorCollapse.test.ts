@@ -408,7 +408,7 @@ describe("MapEditor adding a child to a collapsed node", () => {
     if (input === null) throw new Error("no text input");
     input.value = "New";
     input.dispatchEvent(new Event("input", { bubbles: true }));
-    press("Enter", { ctrlKey: true }, input);
+    press("Escape", {}, input);
 
     pressUndo();
 

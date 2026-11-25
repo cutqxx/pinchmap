@@ -29,6 +29,20 @@ describe("round trip of fixture files", () => {
   });
 });
 
+describe("image embeds in node text", () => {
+  it("reads a line with an image embed and an id as a node with the embed as its text", () => {
+    const { map } = parseMapFile("- ![[img.png]] ^abc123\n");
+
+    expect(getNode(map, "abc123").text).toBe("![[img.png]]");
+  });
+
+  it("returns a file with an image embed and an id byte for byte", () => {
+    const original = "- ![[img.png]] ^abc123\n";
+
+    expect(roundTrip(original)).toBe(original);
+  });
+});
+
 describe("round trip of edge case files", () => {
   const cases: Record<string, string> = {
     "empty file": "",

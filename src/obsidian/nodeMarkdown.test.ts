@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   render: vi.fn(),
+  setIcon: vi.fn((el: HTMLElement, icon: string) => el.setAttribute("data-icon", icon)),
 }));
 
 vi.mock("obsidian", () => {
@@ -16,7 +17,7 @@ vi.mock("obsidian", () => {
       this.children.delete(child);
     }
   }
-  return { Component, MarkdownRenderer: { render: mocks.render } };
+  return { Component, MarkdownRenderer: { render: mocks.render }, setIcon: mocks.setIcon };
 });
 
 import { Component } from "obsidian";
@@ -95,5 +96,136 @@ describe("node Markdown renderer for Obsidian", () => {
     path = "new.md";
     renderer.render(target, "x");
     expect(mocks.render.mock.calls[0]?.[3]).toBe("new.md");
+  });
+
+  describe("broken images", () => {
+    function renderImage(attributes: Record<string, string>, wrapEmbed?: string): HTMLImageElement {
+      const image = document.createElement("img");
+      for (const [name, value] of Object.entries(attributes)) image.setAttribute(name, value);
+      if (wrapEmbed === undefined) {
+        target.append(image);
+      } else {
+        const embed = document.createElement("span");
+        embed.className = "internal-embed";
+        embed.setAttribute("src", wrapEmbed);
+        embed.append(image);
+        target.append(embed);
+      }
+      return image;
+    }
+
+    function placeholders(): HTMLElement[] {
+      return Array.from(target.querySelectorAll<HTMLElement>(".pinchmap-broken-image"));
+    }
+
+    async function settle(): Promise<void> {
+      await createNodeContentRenderer(APP, parent, () => "").render(target, "x").settled;
+    }
+
+    it("marks an image that fails to load and shows a placeholder with the image-off icon", async () => {
+      mocks.render.mockImplementation(async () => {
+        renderImage({ src: "https://example.com/a.png" });
+      });
+      await settle();
+      const image = target.querySelector("img");
+      image?.dispatchEvent(new Event("error"));
+      expect(image?.classList.contains("is-broken")).toBe(true);
+      expect(placeholders().map((p) => p.getAttribute("data-icon"))).toEqual(["image-off"]);
+    });
+
+    it("puts the placeholder right after the broken image", async () => {
+      mocks.render.mockImplementation(async () => {
+        renderImage({ src: "a.png" });
+      });
+      await settle();
+      const image = target.querySelector("img");
+      image?.dispatchEvent(new Event("error"));
+      expect(image?.nextElementSibling).toBe(placeholders()[0]);
+    });
+
+    it("titles the placeholder with the image src for a plain Markdown image", async () => {
+      mocks.render.mockImplementation(async () => {
+        renderImage({ src: "https://example.com/a.png" });
+      });
+      await settle();
+      target.querySelector("img")?.dispatchEvent(new Event("error"));
+      expect(placeholders()[0]?.title).toBe("https://example.com/a.png");
+    });
+
+    it("titles the placeholder with the embed src for a wiki-link image", async () => {
+      mocks.render.mockImplementation(async () => {
+        renderImage({ src: "app://local/resolved/img.png" }, "img.png");
+      });
+      await settle();
+      target.querySelector("img")?.dispatchEvent(new Event("error"));
+      expect(placeholders()[0]?.title).toBe("img.png");
+    });
+
+    it("handles an image that is added after the render has settled", async () => {
+      await settle();
+      const late = renderImage({ src: "late.png" });
+      late.dispatchEvent(new Event("error"));
+      expect(late.classList.contains("is-broken")).toBe(true);
+      expect(placeholders()).toHaveLength(1);
+    });
+
+    it("does not add a second placeholder when the error fires twice", async () => {
+      mocks.render.mockImplementation(async () => {
+        renderImage({ src: "a.png" });
+      });
+      await settle();
+      const image = target.querySelector("img");
+      image?.dispatchEvent(new Event("error"));
+      image?.dispatchEvent(new Event("error"));
+      expect(placeholders()).toHaveLength(1);
+    });
+
+    it("marks an image that had already failed before the render settled", async () => {
+      mocks.render.mockImplementation(async () => {
+        const image = renderImage({ src: "gone.png" });
+        Object.defineProperty(image, "complete", { value: true });
+        Object.defineProperty(image, "naturalWidth", { value: 0 });
+      });
+      await settle();
+      expect(target.querySelector("img")?.classList.contains("is-broken")).toBe(true);
+      expect(placeholders()).toHaveLength(1);
+    });
+
+    it("leaves a successfully loaded image unmarked", async () => {
+      mocks.render.mockImplementation(async () => {
+        const image = renderImage({ src: "ok.png" });
+        Object.defineProperty(image, "complete", { value: true });
+        Object.defineProperty(image, "naturalWidth", { value: 40 });
+      });
+      await settle();
+      expect(target.querySelector("img")?.classList.contains("is-broken")).toBe(false);
+      expect(placeholders()).toHaveLength(0);
+    });
+
+    it("does not treat an image without a src as already broken", async () => {
+      mocks.render.mockImplementation(async () => {
+        const image = renderImage({});
+        Object.defineProperty(image, "complete", { value: true });
+        Object.defineProperty(image, "naturalWidth", { value: 0 });
+      });
+      await settle();
+      expect(placeholders()).toHaveLength(0);
+    });
+
+    it("sets async decoding on rendered images", async () => {
+      mocks.render.mockImplementation(async () => {
+        renderImage({ src: "a.png" });
+      });
+      await settle();
+      expect(target.querySelector("img")?.decoding).toBe("async");
+    });
+
+    it("ignores error events from elements that are not images", async () => {
+      await settle();
+      const other = document.createElement("div");
+      target.append(other);
+      other.dispatchEvent(new Event("error"));
+      expect(placeholders()).toHaveLength(0);
+    });
   });
 });

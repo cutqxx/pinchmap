@@ -36,6 +36,7 @@ afterEach(() => {
   editor.destroy();
   container.remove();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 function flushFrames(): void {

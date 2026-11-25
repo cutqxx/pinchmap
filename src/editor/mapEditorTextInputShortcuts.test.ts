@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
-import { buildMindMap, getNode } from "../model";
+import { buildMindMap, getNode, readRootPosition } from "../model";
 import type { MindMap } from "../model";
 import { MapEditor } from "./mapEditor";
 
@@ -52,6 +52,23 @@ function press(key: string, target: EventTarget, modifiers: KeyboardEventInit = 
   target.dispatchEvent(event);
   flushFrames();
   return event;
+}
+
+function pointer(target: Element, type: string, timeStamp: number): void {
+  const event = new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: "touch" });
+  Object.defineProperty(event, "timeStamp", { value: timeStamp });
+  target.dispatchEvent(event);
+}
+
+function doubleTapOnCanvas(): void {
+  const canvas = container.querySelector<HTMLElement>(".pinchmap-canvas");
+  if (canvas === null) throw new Error("canvas not rendered");
+  canvas.setPointerCapture = vi.fn();
+  pointer(canvas, "pointerdown", 1000);
+  pointer(canvas, "pointerup", 1050);
+  pointer(canvas, "pointerdown", 1120);
+  pointer(canvas, "pointerup", 1170);
+  flushFrames();
 }
 
 function pressOnCanvas(key: string): void {
@@ -249,7 +266,7 @@ describe("MapEditor undo after a shortcut that opens a new node", () => {
 });
 
 describe("MapEditor side of a child opened with Tab", () => {
-  it("opens it on the lighter side counting the text just committed", () => {
+  it("opens a child of the root on the lighter side", () => {
     openMap(
       buildMindMap([
         { id: "r1", text: "Root", parentId: null },
@@ -266,5 +283,42 @@ describe("MapEditor side of a child opened with Tab", () => {
     type("Left one");
     press("Escape", textarea());
     expect(getNode(editor.getMap(), newId).state).toMatchObject({ side: "left" });
+  });
+});
+
+describe("MapEditor layout used for the node opened by a shortcut", () => {
+  it("places a new root below the height of the text committed by the same keystroke", () => {
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(100);
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return 20 * (this.textContent ?? "").split("\n").length;
+    });
+    openMap(buildMindMap([{ id: "r1", text: "Root", parentId: null, state: { x: 2000, y: 0 } }]));
+    editor.beginEditingNode("r1");
+    flushFrames();
+    textarea().value = "one\ntwo\nthree";
+    textarea().dispatchEvent(new Event("input", { bubbles: true }));
+
+    press("Enter", textarea(), { ctrlKey: true });
+
+    const newId = editedNodeId();
+    type("Next");
+    press("Escape", textarea());
+    expect(readRootPosition(getNode(editor.getMap(), newId).state)).toEqual({ x: 2000, y: 108 });
+  });
+});
+
+describe("MapEditor Tab on the kept blank first root", () => {
+  it("opens a child of that root for input", () => {
+    openMap(buildMindMap([]));
+    doubleTapOnCanvas();
+
+    press("Tab", textarea());
+
+    const childId = editedNodeId();
+    type("Child");
+    press("Escape", textarea());
+    const [rootId = ""] = editor.getMap().rootIds;
+    expect(childId).not.toBe(rootId);
+    expect(getNode(editor.getMap(), rootId).childIds).toEqual([childId]);
   });
 });

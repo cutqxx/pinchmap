@@ -1,7 +1,8 @@
 import type { HitTarget, ScreenPoint } from "../input";
 import { NODE_COLORS, getNode, isNodeCollapsed, readColor, readManualPosition } from "../model";
 import type { MindMap, NodeColor, NodeId } from "../model";
-import type { MenuItem } from "./emptySpaceMenu";
+import { clientPointOf } from "./clientPoint";
+import type { MenuItem } from "./menu";
 
 export interface NodeMenuLabels {
   readonly addChild: string;
@@ -95,11 +96,6 @@ export class NodeMenu {
     if (!this.deps.getMap().nodes.has(target.nodeId)) return;
     this.deps.selectNode(target.nodeId);
     const items = nodeMenuItems(this.deps.getMap(), target.nodeId, this.deps.labels, this.deps.actions);
-    this.deps.showMenu(items, this.clientPointOf(point));
-  }
-
-  private clientPointOf(point: ScreenPoint): ScreenPoint {
-    const bounds = this.deps.canvasElement.getBoundingClientRect();
-    return { x: point.x + bounds.left, y: point.y + bounds.top };
+    this.deps.showMenu(items, clientPointOf(this.deps.canvasElement, point));
   }
 }

@@ -4,7 +4,7 @@ import type { MindMap, NodeId } from "../model";
 import type { HitTarget, ScreenPoint } from "../input";
 import type { Camera } from "../viewport";
 import { EmptySpaceMenu } from "./emptySpaceMenu";
-import type { MenuItem } from "./emptySpaceMenu";
+import type { MenuItem } from "./menu";
 
 const CANVAS: HitTarget = { kind: "canvas" };
 const NODE: HitTarget = { kind: "node", nodeId: "a" };

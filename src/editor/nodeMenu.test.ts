@@ -4,7 +4,7 @@ import type { NodeId } from "../model";
 import type { HitTarget, ScreenPoint } from "../input";
 import { NodeMenu, nodeMenuItems } from "./nodeMenu";
 import type { NodeMenuActions, NodeMenuLabels } from "./nodeMenu";
-import type { MenuItem } from "./emptySpaceMenu";
+import type { MenuItem } from "./menu";
 
 const MAP = buildMindMap([
   { id: "r1", text: "Root", parentId: null },

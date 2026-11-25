@@ -4,7 +4,7 @@ import type { Mock } from "vitest";
 import { EMPTY_MIND_MAP, buildMindMap, getNode, readRootPosition } from "../model";
 import type { MindMap } from "../model";
 import { MapEditor } from "./mapEditor";
-import type { MenuItem } from "./mapEditor";
+import type { MenuItem } from "./menu";
 
 class FakeResizeObserver {
   observe(): void {}

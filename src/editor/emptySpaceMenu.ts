@@ -3,17 +3,8 @@ import type { HitTarget, ScreenPoint } from "../input";
 import type { MindMap, NodeId, RootPosition } from "../model";
 import { screenToMap } from "../viewport";
 import type { Camera } from "../viewport";
-
-export interface MenuItem {
-  readonly label: string;
-  readonly isChecked?: boolean;
-  readonly submenu?: readonly MenuItem[];
-  onSelect(): void;
-}
-
-export interface MenuHandle {
-  close(): void;
-}
+import { clientPointOf } from "./clientPoint";
+import type { MenuHandle, MenuItem } from "./menu";
 
 export interface EmptySpaceMenuDeps {
   readonly canvasElement: HTMLElement;
@@ -39,7 +30,7 @@ export class EmptySpaceMenu {
         { label: this.deps.addNodeLabel, onSelect: () => this.addRootAtMapPoint(mapPoint) },
         { label: this.deps.resetMapLayoutLabel, onSelect: () => this.resetMapLayout() },
       ],
-      this.clientPointOf(point),
+      clientPointOf(this.deps.canvasElement, point),
     ) ?? null;
   }
 
@@ -65,10 +56,5 @@ export class EmptySpaceMenu {
   private mapPointAt(point: ScreenPoint): RootPosition {
     const { x, y } = screenToMap(this.deps.getCamera(), point);
     return { x: Math.round(x), y: Math.round(y) };
-  }
-
-  private clientPointOf(point: ScreenPoint): ScreenPoint {
-    const bounds = this.deps.canvasElement.getBoundingClientRect();
-    return { x: point.x + bounds.left, y: point.y + bounds.top };
   }
 }

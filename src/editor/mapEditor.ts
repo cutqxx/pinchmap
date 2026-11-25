@@ -17,7 +17,7 @@ import { MapRenderer } from "../render";
 import type { AddButtonLabels, RenderUi } from "../render";
 import { CameraController, isCameraIntent } from "./cameraController";
 import { EmptySpaceMenu } from "./emptySpaceMenu";
-import type { MenuHandle, MenuItem } from "./emptySpaceMenu";
+import type { MenuHandle, MenuItem } from "./menu";
 import { MarqueeSelection } from "./marqueeSelection";
 import { DEFAULT_NODE_MENU_LABELS, NodeMenu } from "./nodeMenu";
 import type { NodeMenuLabels } from "./nodeMenu";
@@ -34,7 +34,7 @@ import type { TextEditFollowUp } from "./textEditSession";
 import { ViewShortcuts } from "./viewShortcuts";
 import type { VisibleAreaSource } from "./visibleArea";
 
-export type { MenuHandle, MenuItem, BranchClipboard };
+export type { BranchClipboard };
 
 export interface MapHost {
   onMapChanged(): void;

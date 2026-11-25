@@ -1,7 +1,7 @@
 import { canonicalNodeText } from "../model";
 import type { BranchDraft } from "../model";
 import { unescapeCheckboxLikeStart, unescapeContinuationLine, unescapeIdLikeEnding } from "./clipboardLines";
-import { measureIndent } from "./sourceLayout";
+import { leadingWhitespace, measureIndent } from "./sourceLayout";
 import { TRAILING_ID } from "./trailingId";
 
 const LIST_ITEM = /^([ \t]*)(?:(?:[-*+]|\d+[.)])[ \t]+|[-*+]$)(.*)$/;
@@ -64,10 +64,6 @@ function isContinuationOf(item: FlatItem, line: string): boolean {
 function unescapeAfterIndent(line: string): string {
   const indent = leadingWhitespace(line);
   return indent + unescapeContinuationLine(line.slice(indent.length));
-}
-
-function leadingWhitespace(line: string): string {
-  return /^[ \t]*/.exec(line)?.[0] ?? "";
 }
 
 function stripCheckbox(content: string): string {

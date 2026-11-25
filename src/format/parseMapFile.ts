@@ -5,7 +5,7 @@ import type { ReadJson } from "./jsonBlock";
 import { splitLines, stripLineEnding } from "./lines";
 import { LIST_LINE, findListRegion, groupIntoItemBlocks, isBlankLine } from "./listRegion";
 import type { ItemBlock } from "./listRegion";
-import { DEFAULT_INDENT_UNIT, deriveContinuationIndent, deriveIndentUnit, measureIndent, unescapeBulletLikeLine } from "./sourceLayout";
+import { DEFAULT_INDENT_UNIT, deriveContinuationIndent, deriveIndentUnit, leadingWhitespace, measureIndent, unescapeBulletLikeLine } from "./sourceLayout";
 import type { SourceItem, SourceLayout } from "./sourceLayout";
 import { TRAILING_ID } from "./trailingId";
 
@@ -118,10 +118,6 @@ function detectContinuationIndent(continuationLines: readonly string[], prefix: 
   const shallowest = indents.reduce((best, indent) => (indent.length < best.length ? indent : best), indents[0] ?? "");
   const isSharedByAll = indents.every((indent) => indent.startsWith(shallowest));
   return indents.length > 0 && isSharedByAll ? shallowest : deriveContinuationIndent(prefix);
-}
-
-function leadingWhitespace(line: string): string {
-  return /^[ \t]*/.exec(line)?.[0] ?? "";
 }
 
 function stripContinuationIndent(line: string, continuationIndent: string): string {

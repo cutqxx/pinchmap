@@ -18,13 +18,9 @@ const mocks = vi.hoisted(() => ({
   host: null as unknown,
 }));
 
-vi.mock("obsidian", () => {
-  class TextFileView {
-    contentEl = { classList: { add: vi.fn() }, ownerDocument: { defaultView: {} } };
-    file = null;
-    app = { vault: { on: vi.fn(), read: vi.fn() } };
-    constructor(public leaf: unknown) {}
-    addAction(icon: string, title: string, callback: () => void): FakeAction {
+vi.mock("obsidian", async () =>
+  (await import("./testSupport/fakeTextFileView")).fakeObsidian({
+    addAction(icon, title, callback): FakeAction {
       const attributes = new Map<string, string>();
       const classes = new Set<string>();
       const action: FakeAction = {
@@ -39,12 +35,9 @@ vi.mock("obsidian", () => {
       };
       mocks.actions.push(action);
       return action;
-    }
-    registerEvent(): void {}
-    registerDomEvent(): void {}
-  }
-  return { TextFileView, Notice: vi.fn() };
-});
+    },
+  }),
+);
 
 vi.mock("../editor", () => ({
   MapEditor: vi.fn().mockImplementation(function (options: { host: MapHost }) {

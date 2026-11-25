@@ -5,23 +5,9 @@ const mocks = vi.hoisted(() => ({
   scope: undefined as unknown,
 }));
 
-vi.mock("obsidian", () => {
-  class TextFileView {
-    contentEl = { classList: { add: vi.fn() }, ownerDocument: { defaultView: {} } };
-    file = null;
-    app = { vault: { on: vi.fn(), read: vi.fn() } };
-    scope: unknown;
-    constructor(public leaf: unknown) {
-      this.scope = mocks.scope;
-    }
-    addAction(): { setAttribute(): void; getAttribute(): null; classList: { add(): void } } {
-      return { setAttribute() {}, getAttribute: () => null, classList: { add() {} } };
-    }
-    registerEvent(): void {}
-    registerDomEvent(): void {}
-  }
-  return { TextFileView, Notice: vi.fn() };
-});
+vi.mock("obsidian", async () =>
+  (await import("./testSupport/fakeTextFileView")).fakeObsidian({ scope: () => mocks.scope }),
+);
 
 vi.mock("../editor", () => ({ MapEditor: vi.fn().mockImplementation(function () { return mocks.editor; }) }));
 vi.mock("./visibleArea", () => ({ createVisibleAreaSource: () => ({}) }));

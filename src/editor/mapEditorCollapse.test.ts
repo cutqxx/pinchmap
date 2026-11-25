@@ -4,6 +4,7 @@ import type { Mock } from "vitest";
 import { buildMindMap, isNodeCollapsed } from "../model";
 import type { MindMap } from "../model";
 import { MapEditor } from "./mapEditor";
+import { giveEveryElementSize } from "./testSupport/nodeSize";
 import type { MenuItem } from "./menu";
 
 const NODE_SIZE = { width: 80, height: 30 };
@@ -42,8 +43,7 @@ let clock = 0;
 
 beforeEach(() => {
   vi.stubGlobal("ResizeObserver", class { observe(): void {} disconnect(): void {} });
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(NODE_SIZE.width);
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(NODE_SIZE.height);
+  giveEveryElementSize(NODE_SIZE);
   container = document.createElement("div");
   document.body.appendChild(container);
   host = { onMapChanged: vi.fn(), onHistoryChanged: vi.fn(), onTextEditEnded: vi.fn(), showMenu: vi.fn(), notify: vi.fn() };

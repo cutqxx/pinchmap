@@ -11,25 +11,16 @@ const mocks = vi.hoisted(() => ({
   listeners: [] as { target: unknown; type: string; callback: () => void }[],
 }));
 
-vi.mock("obsidian", () => {
-  class TextFileView {
-    contentEl = { classList: { add: vi.fn() }, ownerDocument: mocks.doc };
-    file = null;
-    app = { vault: { on: vi.fn(), read: vi.fn() } };
-    constructor(public leaf: unknown) {}
-    addAction(): { setAttribute(): void; classList: { add(): void } } {
-      return { setAttribute() {}, classList: { add() {} } };
-    }
-    registerEvent(): void {}
-    registerDomEvent(target: unknown, type: string, callback: () => void): void {
-      mocks.listeners.push({ target, type, callback });
-    }
-    save(): Promise<void> {
-      return mocks.save();
-    }
-  }
-  return { TextFileView, Notice: mocks.notice };
-});
+vi.mock("obsidian", async () =>
+  (await import("./testSupport/fakeTextFileView")).fakeObsidian(
+    {
+      ownerDocument: mocks.doc,
+      registerDomEvent: (target, type, callback) => void mocks.listeners.push({ target, type, callback }),
+      save: () => mocks.save(),
+    },
+    mocks.notice,
+  ),
+);
 
 vi.mock("../editor", () => ({
   MapEditor: vi.fn().mockImplementation(function (options: { host: MapHost }) {

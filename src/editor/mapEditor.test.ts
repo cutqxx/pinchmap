@@ -6,6 +6,7 @@ import type { Size } from "../layout";
 import { buildMindMap, getNode, readRootPosition, readSide } from "../model";
 import type { MindMap } from "../model";
 import { MapEditor } from "./mapEditor";
+import { giveEveryElementSize } from "./testSupport/nodeSize";
 
 class FakeResizeObserver {
   observe(): void {}
@@ -589,18 +590,15 @@ describe("MapEditor placing a new root", () => {
   const PINNED = buildMindMap([{ id: "far", text: "Far", parentId: null, state: { x: 2000, y: 0 } }]);
   const ROOT_GAP = 48;
   const NODE_HEIGHT = 20;
-  let sizeSpies: ReturnType<typeof vi.spyOn>[];
+  let restoreSizes: () => void = () => undefined;
 
   function giveEveryNodeASize(): void {
-    sizeSpies = [
-      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(100),
-      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(NODE_HEIGHT),
-    ];
+    restoreSizes = giveEveryElementSize({ width: 100, height: NODE_HEIGHT });
   }
 
   afterEach(() => {
-    sizeSpies?.forEach((spy) => spy.mockRestore());
-    sizeSpies = [];
+    restoreSizes();
+    restoreSizes = () => undefined;
   });
 
   function newRootPosition(afterAnchor: string) {
@@ -724,17 +722,14 @@ describe("MapEditor choosing the side of a new branch", () => {
     { id: "a", text: "A", parentId: "r1" },
     { id: "l", text: "L", parentId: "r1", state: { side: "left" } },
   ]);
-  let sizeSpies: ReturnType<typeof vi.spyOn>[];
+  let restoreSizes: () => void;
 
   beforeEach(() => {
-    sizeSpies = [
-      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(100),
-      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(20),
-    ];
+    restoreSizes = giveEveryElementSize({ width: 100, height: 20 });
   });
 
   afterEach(() => {
-    sizeSpies.forEach((spy) => spy.mockRestore());
+    restoreSizes();
   });
 
   function newChildOf(parentId: string, existing: readonly string[]): string {

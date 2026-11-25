@@ -5,6 +5,7 @@ import type { Size } from "../layout";
 import { buildMindMap } from "../model";
 import type { NodeEntry } from "../model";
 import { MapEditor } from "./mapEditor";
+import { giveEveryElementSize } from "./testSupport/nodeSize";
 
 const NODE_SIZE: Size = { width: 100, height: 20 };
 const CANVAS = { width: 800, height: 600 };
@@ -30,8 +31,7 @@ let pendingFrames: (() => void)[];
 
 beforeEach(() => {
   vi.stubGlobal("ResizeObserver", class { observe(): void {} disconnect(): void {} });
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(NODE_SIZE.width);
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(NODE_SIZE.height);
+  giveEveryElementSize(NODE_SIZE);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
     left: 0, top: 0, right: CANVAS.width, bottom: CANVAS.height, x: 0, y: 0, ...CANVAS, toJSON: () => ({}),
   });

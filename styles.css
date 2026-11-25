@@ -129,6 +129,40 @@
   overflow: hidden;
 }
 
+.pinchmap-node .pinchmap-node-markdown img,
+.pinchmap-node .pinchmap-node-markdown .pinchmap-broken-image {
+  display: block;
+  box-sizing: border-box;
+  width: 200px;
+  height: 150px;
+  border-radius: var(--radius-s);
+  background-color: var(--background-primary);
+}
+
+.pinchmap-node .pinchmap-node-markdown img {
+  object-fit: contain;
+}
+
+.pinchmap-node .pinchmap-node-markdown .image-embed {
+  display: block;
+}
+
+.pinchmap-node .pinchmap-node-markdown .image-embed + .image-embed,
+.pinchmap-node .pinchmap-node-markdown :is(img, .image-embed, .pinchmap-broken-image) + :is(img, .image-embed) {
+  margin-top: 0.25em;
+}
+
+.pinchmap-node .pinchmap-node-markdown img.is-broken {
+  display: none;
+}
+
+.pinchmap-node .pinchmap-node-markdown .pinchmap-broken-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
 .pinchmap-node .pinchmap-node-markdown * {
   pointer-events: none;
 }

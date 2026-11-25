@@ -11,6 +11,8 @@ import { createEditorParts } from "./editorParts";
 import type { EditorParts } from "./editorParts";
 import { IntentDispatcher } from "./intentDispatcher";
 import { KeyboardAssist } from "./keyboardAssist";
+import { DEFAULT_LINK_BUBBLE_LABELS } from "./linkBubble";
+import type { LinkBubbleLabels } from "./linkBubble";
 import { MapFrame } from "./mapFrame";
 import type { MapHost } from "./mapHost";
 import { DEFAULT_NODE_MENU_LABELS } from "./nodeMenu";
@@ -30,6 +32,8 @@ export interface MapEditorOptions {
   readonly addNodeLabel?: string;
   readonly resetMapLayoutLabel?: string;
   readonly nodeMenuLabels?: NodeMenuLabels;
+  readonly linkBubbleLabels?: LinkBubbleLabels;
+  readonly drawIcon?: (target: HTMLElement, iconName: string) => void;
   readonly longPressSeconds?: number;
   readonly clipboard?: BranchClipboard;
   readonly renderNodeContent?: NodeContentRenderer;
@@ -180,6 +184,7 @@ export class MapEditor {
     this.camera.destroy();
     this.resizeObserver.disconnect();
     this.keyboardAssist.destroy();
+    this.parts.linkBubble.destroy();
     this.detachInput.forEach((detach) => detach());
     this.renderer.destroy();
   }
@@ -210,6 +215,8 @@ export class MapEditor {
 
   private createParts(options: MapEditorOptions): EditorParts {
     return createEditorParts({
+      container: options.container,
+      drawIcon: options.drawIcon ?? (() => undefined),
       host: options.host,
       renderer: this.renderer,
       camera: this.camera,
@@ -218,6 +225,7 @@ export class MapEditor {
         addNode: options.addNodeLabel ?? "Add node",
         resetMapLayout: options.resetMapLayoutLabel ?? "Reset map to auto-layout",
         nodeMenu: options.nodeMenuLabels ?? DEFAULT_NODE_MENU_LABELS,
+        linkBubble: options.linkBubbleLabels ?? DEFAULT_LINK_BUBBLE_LABELS,
       },
       getLayout: () => this.frame.layout,
       getSizes: () => this.frame.sizes,

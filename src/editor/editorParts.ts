@@ -5,6 +5,8 @@ import { BranchTransfer } from "./branchTransfer";
 import type { BranchClipboard } from "./branchTransfer";
 import type { CameraController } from "./cameraController";
 import { EmptySpaceMenu } from "./emptySpaceMenu";
+import { LinkBubble } from "./linkBubble";
+import type { LinkBubbleLabels } from "./linkBubble";
 import type { MapHost } from "./mapHost";
 import { MarqueeSelection } from "./marqueeSelection";
 import { NodeDrag } from "./nodeDrag";
@@ -24,15 +26,19 @@ export interface EditorParts {
   readonly nodeMenu: NodeMenu;
   readonly nodeDrag: NodeDrag;
   readonly marqueeSelection: MarqueeSelection;
+  readonly linkBubble: LinkBubble;
 }
 
 export interface EditorPartsLabels {
   readonly addNode: string;
   readonly resetMapLayout: string;
   readonly nodeMenu: NodeMenuLabels;
+  readonly linkBubble: LinkBubbleLabels;
 }
 
 export interface EditorPartsContext {
+  drawIcon(target: HTMLElement, iconName: string): void;
+  readonly container: HTMLElement;
   readonly host: MapHost;
   readonly renderer: MapRenderer;
   readonly camera: CameraController;
@@ -161,5 +167,26 @@ export function createEditorParts(context: EditorPartsContext): EditorParts {
     closeMenu: () => emptySpaceMenu.close(),
   });
 
-  return { selection, nodeEdits, textEditing, branchTransfer, emptySpaceMenu, nodeMenu, nodeDrag, marqueeSelection };
+  const linkBubble = new LinkBubble({
+    container: context.container,
+    canvasElement,
+    labels: context.labels.linkBubble,
+    getMap,
+    getNodeElement: (nodeId) => renderer.getNodeElement(nodeId),
+    selectNode: (nodeId) => selection.select(nodeId),
+    openLink: (link) => host.openLink?.(link),
+    drawIcon: context.drawIcon,
+  });
+
+  return {
+    selection,
+    nodeEdits,
+    textEditing,
+    branchTransfer,
+    emptySpaceMenu,
+    nodeMenu,
+    nodeDrag,
+    marqueeSelection,
+    linkBubble,
+  };
 }

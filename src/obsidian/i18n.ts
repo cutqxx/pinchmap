@@ -35,6 +35,8 @@ const STRINGS = {
     openAsMap: "Open as map",
     mapActionFailed: "Pinchmap: the action failed. See the developer console for details.",
     saveFailed: "Pinchmap: the map could not be saved. Your changes are kept and saving is retried.",
+    link: "Link",
+    openLink: "Open link",
   },
   ru: {
     openAsMarkdown: "Открыть как Markdown",
@@ -72,6 +74,8 @@ const STRINGS = {
     openAsMap: "Открыть как карту",
     mapActionFailed: "Pinchmap: действие не удалось. Подробности в консоли разработчика.",
     saveFailed: "Pinchmap: карту не удалось сохранить. Правки не потеряны, сохранение будет повторено.",
+    link: "Ссылка",
+    openLink: "Открыть ссылку",
   },
 } as const;
 

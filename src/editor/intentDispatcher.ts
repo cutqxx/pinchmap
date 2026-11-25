@@ -33,6 +33,7 @@ export class IntentDispatcher {
 
   handle(intent: Intent): void {
     if (this.deps.isDestroyed()) return;
+    this.deps.parts.linkBubble.dismissOnIntent(intent);
     if (isCameraIntent(intent)) {
       this.deps.camera.handle(intent);
       return;
@@ -110,6 +111,7 @@ export class IntentDispatcher {
       case "add-child":
       case "add-sibling":
       case "collapse-toggle":
+      case "link-icon":
         return;
     }
   }
@@ -131,6 +133,8 @@ export class IntentDispatcher {
         return nodeEdits.addSiblingTo(target.nodeId);
       case "collapse-toggle":
         return this.toggleCollapseFromIndicator(target.nodeId);
+      case "link-icon":
+        return this.deps.parts.linkBubble.toggleFor(target.nodeId);
     }
   }
 
@@ -140,6 +144,7 @@ export class IntentDispatcher {
   }
 
   private handleDoubleTap(target: HitTarget, point: ScreenPoint): void {
+    if (target.kind === "link-icon") return;
     this.handleTap(target);
     if (target.kind === "node") this.deps.parts.textEditing.beginEditing(target.nodeId, null);
     if (target.kind === "canvas") this.deps.parts.emptySpaceMenu.addRootAt(point);

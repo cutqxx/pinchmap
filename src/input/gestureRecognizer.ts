@@ -9,7 +9,7 @@ import { wheelToIntent } from "./wheelIntent";
 export type PointerKind = "touch" | "mouse";
 
 export type HitTarget =
-  | { readonly kind: "node" | "add-child" | "add-sibling" | "collapse-toggle"; readonly nodeId: string }
+  | { readonly kind: "node" | "add-child" | "add-sibling" | "collapse-toggle" | "link-icon"; readonly nodeId: string }
   | { readonly kind: "canvas" };
 
 export interface PointerSample {

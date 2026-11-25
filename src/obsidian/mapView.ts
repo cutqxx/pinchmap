@@ -1,7 +1,7 @@
-import { Notice, TextFileView } from "obsidian";
+import { Notice, TextFileView, setIcon } from "obsidian";
 import type { TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import { MapEditor } from "../editor";
-import type { MindMap } from "../model";
+import type { MindMap, NodeLink } from "../model";
 import { parseMapFile, serializeMapFile } from "../format";
 import type { ParsedMapFile } from "../format";
 import { createDebouncedSave } from "./autosave";
@@ -12,6 +12,8 @@ import { registerViewZoomHotkeys } from "./viewZoomHotkeys";
 import { registerViewBranchHotkeys } from "./viewBranchHotkeys";
 import { createNodeContentRenderer } from "./nodeMarkdown";
 import { createBranchClipboard, textClipboardOf } from "./branchClipboard";
+import { openNodeLink } from "./linkOpener";
+import { reportFailure } from "./reportFailure";
 import { t } from "./i18n";
 
 export const MAP_VIEW_TYPE = "pinchmap-view";
@@ -69,13 +71,20 @@ export class MapView extends TextFileView {
       longPressSeconds,
       renderNodeContent: createNodeContentRenderer(this.app, this, () => this.file?.path ?? ""),
       clipboard: createBranchClipboard(textClipboardOf(this.contentEl.ownerDocument.defaultView ?? window)),
-      labels: { addChild: t("addChild"), addSibling: t("addSibling"), collapse: t("collapse"), expand: t("expand") },
+      drawIcon: (target, iconName) => setIcon(target, iconName),
+      linkBubbleLabels: { openLink: t("openLink") },
+      labels: {
+        addChild: t("addChild"), addSibling: t("addSibling"),
+        collapse: t("collapse"), expand: t("expand"),
+        link: t("link"),
+      },
       host: {
         onMapChanged: () => this.autosave.schedule(),
         onHistoryChanged: (canUndo, canRedo) => this.showHistoryAvailability(canUndo, canRedo),
         onTextEditEnded: () => this.externalChanges.resumeAfterTextEdit(),
         showMenu: showObsidianMenu,
         notify: this.notify,
+        openLink: (link) => reportFailure(this.openLink(link)),
       },
     });
     this.redoAction = this.addHistoryAction("redo-2", t("redo"), () => this.editor.redo());
@@ -159,6 +168,13 @@ export class MapView extends TextFileView {
   private commitEditAndSaveNow(): void {
     this.editor.commitPendingEdit();
     this.autosave.flush().catch(() => this.autosave.schedule());
+  }
+
+  private openLink(link: NodeLink): Promise<void> {
+    const view = this.contentEl.ownerDocument.defaultView ?? window;
+    const openExternal = (url: string): void => void view.open(url, "_blank", "noopener");
+    const { workspace, metadataCache, vault, fileManager } = this.app;
+    return openNodeLink({ workspace, metadataCache, vault, fileManager, openExternal }, this.file?.path ?? "", link);
   }
 
   private reportSaveFailure(error: unknown): void {

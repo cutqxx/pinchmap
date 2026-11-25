@@ -12,6 +12,8 @@ export {
   listNodesInDocumentOrder,
 } from "./mindMap";
 export { canonicalNodeText, isEmptyNodeText } from "./nodeText";
+export type { NodeLink, NodeLinkKind } from "./nodeLinks";
+export { findNodeLinks } from "./nodeLinks";
 export type { JsonObject, JsonValue, NodeState } from "./nodeState";
 export { isJsonObject } from "./nodeState";
 export type { ManualPosition, RootPosition, Side } from "./nodeFields";

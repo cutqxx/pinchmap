@@ -1,10 +1,11 @@
 import type { LayoutResult, Point, Rect, Size } from "../layout";
-import { effectiveColor, listHiddenNodeIds } from "../model";
+import { effectiveColor, findNodeLinks, listHiddenNodeIds } from "../model";
 import type { MapNode, MindMap, NodeColor, NodeId } from "../model";
 import type { Camera } from "../viewport";
 import { DEFAULT_COLLAPSE_TOGGLE_LABELS, syncCollapseToggle } from "./collapseToggle";
 import type { CollapseToggleLabels } from "./collapseToggle";
 import { edgePath } from "./edgePath";
+import { DEFAULT_LINK_ICON_LABEL, syncLinkIcon } from "./linkIcon";
 import { NodeContentLayer } from "./nodeContent";
 import type { NodeContentRenderer } from "./nodeContent";
 
@@ -19,6 +20,7 @@ export interface AddButtonLabels {
   readonly addSibling: string;
   readonly collapse?: string;
   readonly expand?: string;
+  readonly link?: string;
 }
 
 export interface MapRendererOptions {
@@ -52,6 +54,8 @@ export class MapRenderer {
   private readonly dirtyIds = new Set<NodeId>();
   /** The source text each node element currently shows, compared instead of the DOM so content can be rendered HTML. */
   private readonly displayedTexts = new Map<NodeId, string>();
+  /** The stored text each node's link icon was last synced for, so links are only searched when it changes. */
+  private readonly linkIconTexts = new Map<NodeId, string>();
 
   private readonly labels: AddButtonLabels;
   private readonly toggleLabels: CollapseToggleLabels;
@@ -154,6 +158,7 @@ export class MapRenderer {
     this.sizes.clear();
     this.dirtyIds.clear();
     this.displayedTexts.clear();
+    this.linkIconTexts.clear();
     this.contentLayer?.destroy();
   }
 
@@ -177,6 +182,7 @@ export class MapRenderer {
     this.sizes.delete(id);
     this.dirtyIds.delete(id);
     this.displayedTexts.delete(id);
+    this.linkIconTexts.delete(id);
     this.contentLayer?.remove(id);
   }
 
@@ -188,6 +194,7 @@ export class MapRenderer {
       : node.text;
     this.syncText(element, node.id, displayedText);
     this.contentLayer?.sync(node.id, element, node.text);
+    this.syncLinkIconOf(element, node);
     this.syncEditingState(element, node.id, isEditing);
     element.classList.toggle("is-root", node.parentId === null);
     const isSelected = ui.selectedIds.has(node.id);
@@ -195,6 +202,13 @@ export class MapRenderer {
     element.classList.toggle("pinchmap-node--drop-target", ui.dropTargetId === node.id);
     this.syncAddButtons(element, node.id, isSelected && !isEditing && ui.selectedIds.size === 1);
     syncCollapseToggle(element, node, map, this.toggleLabels);
+  }
+
+  private syncLinkIconOf(element: HTMLElement, node: MapNode): void {
+    if (this.linkIconTexts.get(node.id) === node.text) return;
+    this.linkIconTexts.set(node.id, node.text);
+    const label = this.labels.link ?? DEFAULT_LINK_ICON_LABEL;
+    syncLinkIcon(element, node.id, findNodeLinks(node.text).length > 0, label);
   }
 
   private syncEditingState(element: HTMLElement, id: NodeId, isEditing: boolean): void {

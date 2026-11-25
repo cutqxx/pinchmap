@@ -397,3 +397,108 @@
   background-color: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
   pointer-events: none;
 }
+
+.pinchmap-link-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  cursor: pointer;
+  transform: scale(calc(1 / var(--pinchmap-zoom, 1)));
+}
+
+.pinchmap-node.is-left > .pinchmap-link-icon {
+  left: 100%;
+}
+
+.pinchmap-node.is-editing > .pinchmap-link-icon {
+  display: none;
+}
+
+.pinchmap-link-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 50%;
+  background-color: var(--background-primary);
+  color: var(--text-muted);
+}
+
+.pinchmap-link-mark svg {
+  width: 12px;
+  height: 12px;
+}
+
+.pinchmap-link-icon:hover .pinchmap-link-mark {
+  border-color: var(--interactive-accent);
+  color: var(--text-normal);
+}
+
+.pinchmap-link-bubble {
+  position: fixed;
+  z-index: var(--layer-popover, 50);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-width: min(320px, calc(100vw - 16px));
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: var(--size-2-3, 6px);
+  border: 1px solid var(--background-modifier-border-hover, var(--background-modifier-border));
+  border-radius: var(--radius-m);
+  background-color: var(--background-secondary);
+  box-shadow: var(--shadow-s);
+}
+
+.pinchmap-link-bubble-button {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--size-4-3, 12px);
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  text-align: start;
+  cursor: pointer;
+}
+
+.pinchmap-link-bubble-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.pinchmap-link-bubble-icon {
+  display: flex;
+  flex: none;
+  margin-inline-end: var(--size-4-2, 8px);
+  color: var(--text-muted);
+}
+
+.pinchmap-link-bubble-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pinchmap-link-bubble-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pinchmap-link-bubble-target {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller, 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

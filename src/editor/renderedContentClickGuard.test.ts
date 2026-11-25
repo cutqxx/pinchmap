@@ -63,6 +63,12 @@ describe("click guard for rendered node content", () => {
     expect(clickOn("outside").defaultPrevented).toBe(false);
   });
 
+  it("ignores a click whose target is not an element", () => {
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    canvas.querySelector("#plain")?.firstChild?.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("stops guarding after the input is detached", () => {
     detach.forEach((callback) => callback());
     expect(clickOn("link").defaultPrevented).toBe(false);

@@ -28,7 +28,7 @@ function createFakeContentRenderer() {
   return { renderer, renders };
 }
 
-const ui = (overrides: Partial<{ editing: { nodeId: string; draftText: string } | null; selectedIds: Set<string> }> = {}) => ({
+const ui = (overrides: Partial<{ editing: { nodeId: string; draftText: string } | null; selectedIds: Set<string>; dropTargetId: string }> = {}) => ({
   editing: null,
   selectedIds: new Set<string>(),
   ...overrides,
@@ -200,6 +200,35 @@ describe("node Markdown rendering", () => {
     renderer.syncContent(buildMindMap([{ id: "r", text: "Root", parentId: null }]), ui());
     await pending?.settle();
     expect(onContentResized).not.toHaveBeenCalled();
+  });
+
+  it("re-measures the node when editing toggles without a text change", async () => {
+    const widthSpy = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+      const showsRenderedLayer = this.classList.contains("has-rendered-markdown") && !this.classList.contains("is-editing");
+      return showsRenderedLayer ? 99 : 10;
+    });
+    const map = mapWith("**x**");
+    renderer.syncContent(map, ui());
+    await Promise.all(fake.renders.map((render) => render.settle()));
+    expect(renderer.measure().get("a")?.width).toBe(99);
+
+    renderer.syncContent(map, ui({ editing: { nodeId: "a", draftText: "**x**" } }));
+    expect(renderer.measure().get("a")?.width).toBe(10);
+
+    renderer.syncContent(map, ui());
+    expect(renderer.measure().get("a")?.width).toBe(99);
+    widthSpy.mockRestore();
+  });
+
+  it("does not re-render when a node is dragged over a drop target and moves", () => {
+    const map = mapWith("x");
+    renderer.syncContent(map, ui());
+    const before = fake.renders.length;
+    renderer.syncContent(map, ui({ dropTargetId: "r" }));
+    renderer.place(map, { positions: new Map([["a", { x: 40, y: 50 }]]), sides: new Map() } as unknown as Parameters<MapRenderer["place"]>[1]);
+    renderer.syncContent(map, ui({ dropTargetId: "r" }));
+    expect(fake.renders).toHaveLength(before);
+    expect(nodeElement("a").style.left).toBe("40px");
   });
 
   it("renders nothing and works as before when no content renderer is given", () => {

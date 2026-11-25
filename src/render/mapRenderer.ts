@@ -188,13 +188,19 @@ export class MapRenderer {
       : node.text;
     this.syncText(element, node.id, displayedText);
     this.contentLayer?.sync(node.id, element, node.text);
-    element.classList.toggle("is-editing", isEditing);
+    this.syncEditingState(element, node.id, isEditing);
     element.classList.toggle("is-root", node.parentId === null);
     const isSelected = ui.selectedIds.has(node.id);
     element.classList.toggle("is-selected", isSelected);
     element.classList.toggle("pinchmap-node--drop-target", ui.dropTargetId === node.id);
     this.syncAddButtons(element, node.id, isSelected && !isEditing && ui.selectedIds.size === 1);
     syncCollapseToggle(element, node, map, this.toggleLabels);
+  }
+
+  private syncEditingState(element: HTMLElement, id: NodeId, isEditing: boolean): void {
+    if (element.classList.contains("is-editing") === isEditing) return;
+    element.classList.toggle("is-editing", isEditing);
+    this.dirtyIds.add(id);
   }
 
   private syncText(element: HTMLElement, id: NodeId, displayedText: string): void {

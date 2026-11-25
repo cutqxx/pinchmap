@@ -130,6 +130,7 @@
 }
 
 .pinchmap-node .pinchmap-node-markdown img,
+.pinchmap-node .pinchmap-node-markdown .image-embed,
 .pinchmap-node .pinchmap-node-markdown .pinchmap-broken-image {
   display: block;
   box-sizing: border-box;
@@ -143,13 +144,18 @@
   object-fit: contain;
 }
 
-.pinchmap-node .pinchmap-node-markdown .image-embed {
-  display: block;
+.pinchmap-node .pinchmap-node-markdown .image-embed :is(img, .pinchmap-broken-image) {
+  width: 100%;
+  height: 100%;
 }
 
-.pinchmap-node .pinchmap-node-markdown .image-embed + .image-embed,
-.pinchmap-node .pinchmap-node-markdown :is(img, .image-embed, .pinchmap-broken-image) + :is(img, .image-embed) {
+.pinchmap-node .pinchmap-node-markdown :is(img, .image-embed, .pinchmap-broken-image) + :is(img, .image-embed),
+.pinchmap-node .pinchmap-node-markdown :is(img, .image-embed, .pinchmap-broken-image) + br + :is(img, .image-embed) {
   margin-top: 0.25em;
+}
+
+.pinchmap-node .pinchmap-node-markdown :is(img, .image-embed, .pinchmap-broken-image) + br {
+  display: none;
 }
 
 .pinchmap-node .pinchmap-node-markdown img.is-broken {
@@ -165,6 +171,10 @@
 
 .pinchmap-node .pinchmap-node-markdown * {
   pointer-events: none;
+}
+
+.pinchmap-node .pinchmap-node-markdown .pinchmap-broken-image {
+  pointer-events: auto;
 }
 
 .pinchmap-node-input {

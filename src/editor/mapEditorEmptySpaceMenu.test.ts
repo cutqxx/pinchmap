@@ -153,7 +153,7 @@ function typeAndCommit(text: string): void {
   const input = textarea();
   input.value = text;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
   flushFrames();
 }
 

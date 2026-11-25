@@ -1053,7 +1053,7 @@ describe("history with a group selected", () => {
     if (input === null) throw new Error("no text input is open");
     input.value = "New";
     input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
     flushFrames();
     const added = [...editor.getMap().nodes.keys()].find((id) => !GROUP_MAP.nodes.has(id));
     if (added === undefined) throw new Error("child was not added");

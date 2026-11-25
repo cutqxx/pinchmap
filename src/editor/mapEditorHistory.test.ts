@@ -143,7 +143,7 @@ function typeText(text: string): void {
 
 function typeAndCommit(text: string): void {
   typeText(text);
-  press("Enter", textarea(), { ctrlKey: true });
+  press("Escape", textarea());
 }
 
 function selectedIds(): string[] {

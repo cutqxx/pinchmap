@@ -52,20 +52,38 @@ describe("beginTextEdit", () => {
     expect(onCommitted).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["Escape", {}],
-    ["Enter", { ctrlKey: true }],
-    ["Enter", { metaKey: true }],
-  ])("ends with a keyboard end on %s %o and removes the input", (key, modifiers) => {
+  it.each<[string, KeyboardEventInit, TextEditEnd]>([
+    ["Escape", {}, { kind: "keyboard" }],
+    ["Enter", { ctrlKey: true }, { kind: "keyboard", followUp: "addSibling" }],
+    ["Enter", { metaKey: true }, { kind: "keyboard", followUp: "addSibling" }],
+    ["Tab", {}, { kind: "keyboard", followUp: "addChild" }],
+  ])("ends with the right keyboard end on %s %o and removes the input", (key, modifiers, end) => {
     open();
     input().value = "Typed";
     const textarea = input();
 
     const event = pressKey(key, modifiers);
 
-    expect(onCommitted).toHaveBeenCalledExactlyOnceWith("Typed", { kind: "keyboard" });
+    expect(onCommitted).toHaveBeenCalledExactlyOnceWith("Typed", end);
     expect(textarea.isConnected).toBe(false);
     expect(event.defaultPrevented).toBe(true);
+  });
+
+  it.each<[string, KeyboardEventInit]>([
+    ["Enter", {}],
+    ["Enter", { shiftKey: true }],
+    ["Tab", { shiftKey: true }],
+    ["Tab", { altKey: true }],
+    ["Tab", { ctrlKey: true }],
+    ["Tab", { metaKey: true }],
+  ])("does not handle %s %o: no commit, no preventDefault, input stays", (key, modifiers) => {
+    open();
+
+    const event = pressKey(key, modifiers);
+
+    expect(onCommitted).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+    expect(input().isConnected).toBe(true);
   });
 
   describe("while an IME composition is in progress", () => {
@@ -77,6 +95,7 @@ describe("beginTextEdit", () => {
       ["Escape", "Escape", {}],
       ["Ctrl+Enter", "Enter", { ctrlKey: true }],
       ["Cmd+Enter", "Enter", { metaKey: true }],
+      ["Tab", "Tab", {}],
     ];
 
     describe.each(composing)("signalled by %s", (_label, compositionState) => {
@@ -99,23 +118,11 @@ describe("beginTextEdit", () => {
 
       pressKey(key, modifiers);
 
-      expect(onCommitted).toHaveBeenCalledExactlyOnceWith("Composed", { kind: "keyboard" });
+      expect(onCommitted).toHaveBeenCalledOnce();
+      expect(onCommitted.mock.calls[0]?.[0]).toBe("Composed");
       expect(nodeElement.querySelector("textarea")).toBeNull();
     });
   });
-
-  it.each([{}, { shiftKey: true }])(
-    "leaves the newline to the browser on Enter %o: no commit, no preventDefault",
-    (modifiers) => {
-      open();
-
-      const event = pressKey("Enter", modifiers);
-
-      expect(onCommitted).not.toHaveBeenCalled();
-      expect(event.defaultPrevented).toBe(false);
-      expect(input().isConnected).toBe(true);
-    },
-  );
 
   it("passes the given end through when committed through the session", () => {
     const session = open();
@@ -173,11 +180,11 @@ describe("beginTextEdit", () => {
     expect(onCommitted.mock.calls[0]?.[0]).toBe("padded");
   });
 
-  it("reports the end only once when a blur follows a Ctrl+Enter", () => {
+  it("reports the end only once when a blur follows an Escape", () => {
     open();
     const textarea = input();
 
-    pressKey("Enter", { ctrlKey: true });
+    pressKey("Escape");
     textarea.dispatchEvent(new FocusEvent("blur"));
 
     expect(onCommitted).toHaveBeenCalledTimes(1);

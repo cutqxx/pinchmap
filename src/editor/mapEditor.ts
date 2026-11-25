@@ -30,6 +30,7 @@ import type { BranchClipboard } from "./branchTransfer";
 import { NodeEdits } from "./nodeEdits";
 import { Selection } from "./selection";
 import { TextEditing } from "./textEditing";
+import type { TextEditFollowUp } from "./textEditSession";
 import { ViewShortcuts } from "./viewShortcuts";
 import type { VisibleAreaSource } from "./visibleArea";
 
@@ -267,7 +268,15 @@ export class MapEditor {
       focusCanvas: () => this.renderer.focusCanvas(),
       scheduleFrame: () => this.scheduleFrame(),
       onTextEditEnded: () => this.host.onTextEditEnded(),
+      followUp: (followUp, nodeId) => this.followUpTextEdit(followUp, nodeId),
     });
+  }
+
+  private followUpTextEdit(followUp: TextEditFollowUp, nodeId: NodeId): void {
+    // The layout must include the committed text, so the new node gets the right side and position.
+    this.renderFrame();
+    if (followUp === "addChild") this.nodeEdits.addChildTo(nodeId);
+    else this.nodeEdits.addSiblingTo(nodeId);
   }
 
   private createBranchTransfer(clipboard: BranchClipboard): BranchTransfer {

@@ -105,7 +105,7 @@ function typeAndCommit(text: string): void {
   const input = textarea();
   input.value = text;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  press("Enter", input, { ctrlKey: true });
+  press("Escape", input);
 }
 
 function selectedIds(): string[] {

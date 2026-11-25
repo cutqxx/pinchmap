@@ -100,7 +100,7 @@ function typeAndCommit(text: string): void {
   const input = textarea();
   input.value = text;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  press("Enter", input, { ctrlKey: true });
+  press("Escape", input);
 }
 
 function selectedIds(): string[] {
@@ -448,16 +448,6 @@ describe("MapEditor deleting", () => {
     expect(editor.getMap().nodes.has("a")).toBe(true);
     expect(editor.isEditingText()).toBe(true);
   });
-
-  it("does not turn Tab or Enter into new nodes while editing text", () => {
-    openMap(SAMPLE);
-    doubleTapOn(nodeElement("a"));
-    const sizeBefore = editor.getMap().nodes.size;
-
-    press("Tab", textarea());
-
-    expect(editor.getMap().nodes.size).toBe(sizeBefore);
-  });
 });
 
 describe("MapEditor autosave and an uncommitted new node", () => {
@@ -550,7 +540,7 @@ describe("MapEditor returning focus to the canvas", () => {
     expect(document.activeElement).toBe(outsideInput);
   });
 
-  it("focuses the canvas after the edit is committed with Ctrl+Enter", () => {
+  it("focuses the canvas after the edit is committed with Escape", () => {
     typeAndCommit("Changed");
 
     expect(document.activeElement).toBe(canvas());
@@ -830,7 +820,7 @@ describe("MapEditor keyboard shortcuts for text input", () => {
     expect(editor.isEditingText()).toBe(false);
   });
 
-  it("saves the text edited after F2 when committed with Ctrl+Enter", () => {
+  it("saves the text edited after F2 when committed with Escape", () => {
     openMap(SAMPLE);
     tapOn(nodeElement("a"));
     press("F2");
@@ -871,25 +861,13 @@ describe("MapEditor keyboard shortcuts for text input", () => {
     expect(selectedIds()).toEqual(["a"]);
   });
 
-  it("creates no node and keeps editing when Enter is pressed in the input", () => {
+  it("creates no node when the input is committed with Escape", () => {
     openMap(SAMPLE);
     tapOn(nodeElement("a"));
     press("F2");
     const nodeCount = editor.getMap().nodes.size;
 
-    press("Enter", textarea());
-
-    expect(editor.getMap().nodes.size).toBe(nodeCount);
-    expect(editor.isEditingText()).toBe(true);
-  });
-
-  it("creates no node when the input is committed with Ctrl+Enter", () => {
-    openMap(SAMPLE);
-    tapOn(nodeElement("a"));
-    press("F2");
-    const nodeCount = editor.getMap().nodes.size;
-
-    press("Enter", textarea(), { ctrlKey: true });
+    press("Escape", textarea());
 
     expect(editor.getMap().nodes.size).toBe(nodeCount);
     expect(editor.isEditingText()).toBe(false);

@@ -3,7 +3,7 @@ import { getNode, isEmptyNodeText } from "../model";
 import type { MindMap, NodeId } from "../model";
 import type { Selection } from "./selection";
 import { beginTextEdit } from "./textEditSession";
-import type { TextEditEnd, TextEditSession } from "./textEditSession";
+import type { TextEditEnd, TextEditFollowUp, TextEditSession } from "./textEditSession";
 
 export interface EditingState {
   readonly nodeId: NodeId;
@@ -32,6 +32,8 @@ export interface TextEditingDeps {
   focusCanvas(): void;
   scheduleFrame(): void;
   onTextEditEnded(): void;
+  /** Creates the node asked for by Enter or Tab, next to or under the edited node. */
+  followUp(followUp: TextEditFollowUp, nodeId: NodeId): void;
 }
 
 /**
@@ -101,7 +103,8 @@ export class TextEditing {
   private finishEditing(nodeId: NodeId, finalText: string, end: TextEditEnd): void {
     const newNode = this.editing?.newNode ?? null;
     this.editing = null;
-    if (newNode !== null && isEmptyNodeText(finalText) && newNode.mapBeforeCreation.nodes.size > 0) {
+    const isDiscarded = newNode !== null && isEmptyNodeText(finalText) && newNode.mapBeforeCreation.nodes.size > 0;
+    if (isDiscarded) {
       this.discardNewNode(newNode);
     } else {
       this.commitText(nodeId, finalText, newNode?.mapBeforeCreation);
@@ -109,6 +112,9 @@ export class TextEditing {
     if (this.shouldRefocusCanvas(end)) this.deps.focusCanvas();
     this.deps.scheduleFrame();
     this.deps.onTextEditEnded();
+    // An empty new node is dropped, not followed: Enter or Tab on it just ends the input.
+    const followUp = end.kind === "keyboard" ? end.followUp : undefined;
+    if (followUp !== undefined && !isDiscarded) this.deps.followUp(followUp, nodeId);
   }
 
   private shouldRefocusCanvas(end: TextEditEnd): boolean {

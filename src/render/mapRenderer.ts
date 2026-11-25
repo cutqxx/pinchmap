@@ -45,6 +45,8 @@ export class MapRenderer {
   private readonly edgeElements = new Map<NodeId, SVGPathElement>();
   private readonly sizes = new Map<NodeId, Size>();
   private readonly dirtyIds = new Set<NodeId>();
+  /** The source text each node element currently shows, compared instead of the DOM so content can be rendered HTML. */
+  private readonly displayedTexts = new Map<NodeId, string>();
 
   private readonly labels: AddButtonLabels;
   private readonly toggleLabels: CollapseToggleLabels;
@@ -133,20 +135,28 @@ export class MapRenderer {
 
   destroy(): void {
     this.canvasElement.remove();
+    this.marqueeElement = null;
     this.nodeElements.clear();
     this.edgeElements.clear();
+    this.sizes.clear();
+    this.dirtyIds.clear();
+    this.displayedTexts.clear();
   }
 
   private removeStaleElements(map: MindMap): void {
-    for (const [id, element] of this.nodeElements) {
-      if (map.nodes.has(id)) continue;
-      element.remove();
-      this.edgeElements.get(id)?.remove();
-      this.nodeElements.delete(id);
-      this.edgeElements.delete(id);
-      this.sizes.delete(id);
-      this.dirtyIds.delete(id);
+    for (const id of [...this.nodeElements.keys()]) {
+      if (!map.nodes.has(id)) this.removeNode(id);
     }
+  }
+
+  private removeNode(id: NodeId): void {
+    this.nodeElements.get(id)?.remove();
+    this.edgeElements.get(id)?.remove();
+    this.nodeElements.delete(id);
+    this.edgeElements.delete(id);
+    this.sizes.delete(id);
+    this.dirtyIds.delete(id);
+    this.displayedTexts.delete(id);
   }
 
   private syncNodeElement(node: MapNode, map: MindMap, ui: RenderUi): void {
@@ -155,11 +165,7 @@ export class MapRenderer {
     const displayedText = isEditing
       ? withTrailingLineVisible(ui.editing?.draftText ?? node.text)
       : node.text;
-    const textElement = element.firstElementChild;
-    if (textElement !== null && textElement.textContent !== displayedText) {
-      textElement.textContent = displayedText;
-      this.dirtyIds.add(node.id);
-    }
+    this.syncText(element, node.id, displayedText);
     element.classList.toggle("is-editing", isEditing);
     element.classList.toggle("is-root", node.parentId === null);
     const isSelected = ui.selectedIds.has(node.id);
@@ -167,6 +173,14 @@ export class MapRenderer {
     element.classList.toggle("pinchmap-node--drop-target", ui.dropTargetId === node.id);
     this.syncAddButtons(element, node.id, isSelected && !isEditing && ui.selectedIds.size === 1);
     syncCollapseToggle(element, node, map, this.toggleLabels);
+  }
+
+  private syncText(element: HTMLElement, id: NodeId, displayedText: string): void {
+    const textElement = element.firstElementChild;
+    if (textElement === null || this.displayedTexts.get(id) === displayedText) return;
+    textElement.textContent = displayedText;
+    this.displayedTexts.set(id, displayedText);
+    this.dirtyIds.add(id);
   }
 
   private syncColor(id: NodeId, color: NodeColor | undefined): void {

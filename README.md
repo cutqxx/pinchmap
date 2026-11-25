@@ -17,7 +17,7 @@ A Pinchmap map is an ordinary `.md` note: a nested list plus a small hidden JSON
 
 - **Markdown is the source of truth.** Every node is a list item with a stable `^id`. Text before and after the list, other lists and extra frontmatter fields are left untouched.
 - **Touch and mouse are equal citizens.** Pan with one finger or the mouse wheel, pinch or Ctrl+wheel to zoom, long-press or right-click for menus, Apple Pencil works like a finger.
-- **Fast editing.** Double-tap or double-click to edit text; `Tab` adds a child, `Enter` a sibling, `F2` edits, arrows navigate. On iPhone and iPad a **Done** button sits above the keyboard and the canvas scrolls the edited node into view.
+- **Fast editing.** Double-tap or double-click to edit text; `Tab` adds a child, `Enter` a sibling (outside text input; inside it `Tab` commits and adds a child, Ctrl/Cmd + `Enter` commits and adds a sibling, `Enter` is a new line), `F2` edits, arrows navigate. On iPhone and iPad a **Done** button sits above the keyboard and the canvas scrolls the edited node into view.
 - **Automatic layout with manual overrides.** Branches grow to the right (or left), multiple roots stack vertically. Drag any node to place it by hand, drop it onto another node to change its parent, or reset it back to auto-layout.
 - **Collapse, colour, copy.** Fold branches with a descendant counter, colour nodes with the six Obsidian Canvas colours, copy a branch as a nested list, paste lists or plain lines from anywhere, duplicate branches.
 - **Multi-select.** Draw a selection rectangle (mouse drag, or long-press then drag on touch), Shift/Cmd-click to add or remove nodes, drag the whole group at once.
@@ -77,8 +77,8 @@ Manual install: download `main.js`, `manifest.json` and `styles.css` from the [l
 | Zoom | pinch | Ctrl/Cmd + wheel, Ctrl/Cmd + `=` / `-`, Ctrl/Cmd + `0` to fit |
 | Select node | tap | click |
 | Edit text | double-tap | double-click, `F2` |
-| Finish editing | **Done** button, tap outside | `Esc`, Ctrl/Cmd + `Enter`, click outside |
-| Add child / sibling | **+** buttons | `Tab` / `Enter`, **+** buttons |
+| Finish editing | **Done** button, tap outside | `Esc`, click outside |
+| Add child / sibling | **+** buttons | `Tab` / `Enter`, **+** buttons; in text input: `Tab` commits and adds a child, Ctrl/Cmd + `Enter` commits and adds a sibling, `Enter` is a new line |
 | Add root | double-tap empty space, or long-press empty space → **Add node** | double-click empty space, or right-click empty space → **Add node** |
 | Reset map to auto-layout | long-press empty space → **Reset map to auto-layout** | right-click empty space → **Reset map to auto-layout**, or the command palette |
 | Node menu | long-press node | right-click node |

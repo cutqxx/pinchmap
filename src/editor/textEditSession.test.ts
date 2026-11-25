@@ -54,9 +54,10 @@ describe("beginTextEdit", () => {
 
   it.each<[string, KeyboardEventInit, TextEditEnd]>([
     ["Escape", {}, { kind: "keyboard" }],
-    ["Enter", {}, { kind: "keyboard", followUp: "addSibling" }],
+    ["Enter", { ctrlKey: true }, { kind: "keyboard", followUp: "addSibling" }],
+    ["Enter", { metaKey: true }, { kind: "keyboard", followUp: "addSibling" }],
     ["Tab", {}, { kind: "keyboard", followUp: "addChild" }],
-  ])("ends with a keyboard end on %s %o and removes the input", (key, modifiers, end) => {
+  ])("ends with the right keyboard end on %s %o and removes the input", (key, modifiers, end) => {
     open();
     input().value = "Typed";
     const textarea = input();
@@ -68,20 +69,22 @@ describe("beginTextEdit", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
-  it.each([{ ctrlKey: true }, { metaKey: true }])(
-    "inserts a line break at the cursor on Enter %o and keeps editing",
-    (modifiers) => {
-      open("ab");
-      input().setSelectionRange(1, 1);
+  it.each<[string, KeyboardEventInit]>([
+    ["Enter", {}],
+    ["Enter", { shiftKey: true }],
+    ["Tab", { shiftKey: true }],
+    ["Tab", { altKey: true }],
+    ["Tab", { ctrlKey: true }],
+    ["Tab", { metaKey: true }],
+  ])("does not handle %s %o: no commit, no preventDefault, input stays", (key, modifiers) => {
+    open();
 
-      const event = pressKey("Enter", modifiers);
+    const event = pressKey(key, modifiers);
 
-      expect(input().value).toBe("a\nb");
-      expect(onDraftChanged).toHaveBeenCalledWith("a\nb");
-      expect(onCommitted).not.toHaveBeenCalled();
-      expect(event.defaultPrevented).toBe(true);
-    },
-  );
+    expect(onCommitted).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+    expect(input().isConnected).toBe(true);
+  });
 
   describe("while an IME composition is in progress", () => {
     const composing: [string, KeyboardEventInit][] = [
@@ -90,7 +93,8 @@ describe("beginTextEdit", () => {
     ];
     const chords: [string, string, KeyboardEventInit][] = [
       ["Escape", "Escape", {}],
-      ["Enter", "Enter", {}],
+      ["Ctrl+Enter", "Enter", { ctrlKey: true }],
+      ["Cmd+Enter", "Enter", { metaKey: true }],
       ["Tab", "Tab", {}],
     ];
 
@@ -119,19 +123,6 @@ describe("beginTextEdit", () => {
       expect(nodeElement.querySelector("textarea")).toBeNull();
     });
   });
-
-  it.each([{ shiftKey: true }])(
-    "leaves the newline to the browser on Enter %o: no commit, no preventDefault",
-    (modifiers) => {
-      open();
-
-      const event = pressKey("Enter", modifiers);
-
-      expect(onCommitted).not.toHaveBeenCalled();
-      expect(event.defaultPrevented).toBe(false);
-      expect(input().isConnected).toBe(true);
-    },
-  );
 
   it("passes the given end through when committed through the session", () => {
     const session = open();

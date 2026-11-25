@@ -1,6 +1,6 @@
 import { canonicalNodeText } from "../model";
 
-/** What the user asked for after the text: a new child (Tab) or a new sibling (Enter). */
+/** What the user asked for after the text: a new child (Tab) or a new sibling (Ctrl/Cmd+Enter). */
 export type TextEditFollowUp = "addChild" | "addSibling";
 
 export type TextEditEnd =
@@ -24,33 +24,18 @@ function isImeComposing(event: KeyboardEvent): boolean {
   return event.isComposing || event.keyCode === 229;
 }
 
-type KeyAction = { readonly kind: "commit"; readonly end: TextEditEnd } | { readonly kind: "newline" } | null;
-
 /**
- * Enter and Tab end the input and ask for a new sibling or child, like outside
- * text input. A line break is Shift+Enter (left to the browser) or Ctrl/Cmd+Enter.
+ * Escape ends the input, Tab ends it and asks for a new child, Ctrl/Cmd+Enter ends it
+ * and asks for a new sibling. Plain Enter and Shift+Enter are left to the browser (new line).
  */
-function keyAction(event: KeyboardEvent): KeyAction {
-  const hasCommandModifier = event.ctrlKey || event.metaKey;
-  if (event.key === "Escape") return { kind: "commit", end: { kind: "keyboard" } };
-  if (event.key === "Enter") {
-    if (hasCommandModifier) return { kind: "newline" };
-    if (event.shiftKey || event.altKey) return null;
-    return { kind: "commit", end: { kind: "keyboard", followUp: "addSibling" } };
+function keyAction(event: KeyboardEvent): TextEditEnd | null {
+  if (event.key === "Escape") return { kind: "keyboard" };
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    return { kind: "keyboard", followUp: "addSibling" };
   }
-  if (event.key === "Tab" && !event.shiftKey && !event.altKey && !hasCommandModifier) {
-    return { kind: "commit", end: { kind: "keyboard", followUp: "addChild" } };
-  }
+  const isPlainTab = !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+  if (event.key === "Tab" && isPlainTab) return { kind: "keyboard", followUp: "addChild" };
   return null;
-}
-
-function insertLineBreak(textarea: HTMLTextAreaElement): void {
-  // execCommand keeps the browser's own undo for the input; setRangeText is the fallback.
-  const doc = textarea.ownerDocument;
-  const isInserted = typeof doc.execCommand === "function" && doc.execCommand("insertText", false, "\n");
-  if (isInserted) return;
-  textarea.setRangeText("\n", textarea.selectionStart, textarea.selectionEnd, "end");
-  textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 export function beginTextEdit(options: TextEditOptions): TextEditSession {
@@ -83,12 +68,11 @@ export function beginTextEdit(options: TextEditOptions): TextEditSession {
   );
   textarea.addEventListener("keydown", (event) => {
     if (isImeComposing(event)) return;
-    const action = keyAction(event);
-    if (action === null) return;
+    const end = keyAction(event);
+    if (end === null) return;
     event.preventDefault();
     event.stopPropagation();
-    if (action.kind === "newline") insertLineBreak(textarea);
-    else commitEndedBy(action.end);
+    commitEndedBy(end);
   });
 
   nodeElement.appendChild(textarea);

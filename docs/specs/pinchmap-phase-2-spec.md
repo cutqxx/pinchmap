@@ -215,4 +215,4 @@ findNodeLinks(text: string): NodeLink[]   // text order, duplicates removed, cod
 - **ОВ-13.** Картинка вставляется только в ноду, на которой открыто меню.
 - **ОВ-14.** Вторая строка кнопки бабла для внешней ссылки — только домен.
 
-[ ] Reviewed
+[x] Reviewed

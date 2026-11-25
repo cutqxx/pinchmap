@@ -88,3 +88,13 @@ describe("t saveFailed", () => {
     expect(t("saveFailed", "en")).toBe("Pinchmap: the map could not be saved. Your changes are kept and saving is retried.");
   });
 });
+
+describe("t link bubble labels", () => {
+  it.each([
+    ["link", "Ссылка", "Link"],
+    ["openLink", "Открыть ссылку", "Open link"],
+  ] as const)("returns the %s label in ru and en", (key, ru, en) => {
+    expect(t(key, "ru")).toBe(ru);
+    expect(t(key, "en")).toBe(en);
+  });
+});

@@ -1131,3 +1131,29 @@ describe("GestureRecognizer multi-finger tap", () => {
     expect(undoOrRedo(intents)).toEqual([{ type: "undo" }]);
   });
 });
+
+describe("GestureRecognizer link icon target", () => {
+  const LINK_ICON: HitTarget = { kind: "link-icon", nodeId: "a" };
+
+  it("reports a tap on the link icon with its target", () => {
+    expect(tap(new GestureRecognizer(), { target: LINK_ICON })).toEqual([{ type: "tap", target: LINK_ICON }]);
+  });
+
+  it("reports a mouse click on the link icon as a tap", () => {
+    expect(tap(new GestureRecognizer(), { kind: "mouse", target: LINK_ICON })).toEqual([
+      { type: "tap", target: LINK_ICON },
+    ]);
+  });
+
+  it("does not pan the camera when a finger drags from the link icon", () => {
+    const recognizer = new GestureRecognizer();
+
+    const intents = feed(recognizer, [
+      sample({ phase: "down", target: LINK_ICON }),
+      sample({ phase: "move", x: 140, target: LINK_ICON }),
+      sample({ phase: "up", x: 140, target: LINK_ICON }),
+    ]);
+
+    expect(intents).toEqual([]);
+  });
+});

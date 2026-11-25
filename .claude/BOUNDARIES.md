@@ -7,15 +7,15 @@ Dependencies point inward: `model/` depends on nothing; `obsidian/` is the only 
 
 ## Modules
 
-- `model/` — owns: MindMap, Node, NodeId, Root; node state (text, color, collapsed, pinned position); color inheritance rule; unique ID generation. Depends on: (none)
+- `model/` — owns: MindMap, Node, NodeId, Root; node state (text, color, collapsed, pinned position); color inheritance rule; unique ID generation; link detection in node text (`findNodeLinks`), image extensions, appending an embed line (phase 2). Depends on: (none)
 - `format/` — owns: parsing and serializing the map file (`mindmap: true` frontmatter, nested list ↔ tree, `^id`, hidden JSON block in `%% … %%`, lossless preservation of content outside the list), silent ID insertion, converting a note into a map, branch ↔ Markdown list (clipboard, Markdown export). Depends on: model
 - `commands/` — owns: all edit operations as commands (add child/sibling/root, delete branch, move, reparent, collapse, color, paste/duplicate branch, reset to auto-layout) and undo/redo history. Depends on: model
 - `layout/` — owns: auto-layout (right/left balancing, children stacked without overlap), manual offsets, branch bounds, reparent drop-target lookup, partial relayout (phase 7). Node sizes are supplied from outside. Depends on: model
 - `viewport/` — owns: camera (pan, zoom), screen ↔ map coordinates, fit to screen, on-screen keyboard offset, visible-area computation (phase 7). Depends on: (none)
 - `render/` — owns: drawing nodes, edges, selection, marquee, "+" buttons, collapse indicator and descendant count, drop-target highlight, link icon; visible-only drawing (phase 7). Node content (Markdown) rendering is injected from outside. Depends on: model, layout, viewport
 - `input/` — owns: turning touch/pen/mouse/wheel/trackpad/keyboard events into unified intents (tap, double tap, long press with configurable duration, drag with threshold, pinch, two/three-finger tap, marquee) and the hotkey map. Depends on: (none)
-- `editor/` — owns: selection state, intent → command mapping, text-editing session, node and empty-space context menus, map toolbar, arrow-key navigation, link bubble (phase 2). Depends on: model, commands, layout, viewport, render, input
-- `obsidian/` — owns: plugin entry point, map view (opening `mindmap: true` files, "Open as Markdown"), "New map" and "Convert note to map" commands, ribbon button, debounced autosave, reload on external change (sync), settings tab, clipboard, Markdown rendering via Obsidian, attachments and images (phase 2). Depends on: all modules above
+- `editor/` — owns: selection state, intent → command mapping, text-editing session, node and empty-space context menus, map toolbar, arrow-key navigation, link bubble and image insertion flow (phase 2). Depends on: model, commands, layout, viewport, render, input
+- `obsidian/` — owns: plugin entry point, map view (opening `mindmap: true` files, "Open as Markdown"), "New map" and "Convert note to map" commands, ribbon button, debounced autosave, reload on external change (sync), settings tab, clipboard, Markdown rendering via Obsidian, attachments and images, link opening, image pickers, clipboard images, open-link command (phase 2). Depends on: all modules above
 - `embed/`* (phase 4) — owns: read-only `![[map]]` preview and opening the map from it. Depends on: format, layout, render, viewport
 - `styles/`* (phase 5) — owns: presets, palettes, node shapes, edge styles, theme CSS-variable binding, merging plugin and per-map settings. Depends on: model
 - `search/`* (phase 6) — owns: matching node text, match navigation order, branches to expand. Depends on: model

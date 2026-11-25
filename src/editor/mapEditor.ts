@@ -1,48 +1,24 @@
-import {
-  GestureRecognizer,
-  attachContextMenuSource,
-  attachNativeGestureGuard,
-  attachKeySource,
-  attachPointerSource,
-  attachSpaceKeySource,
-  attachWheelSource,
-} from "../input";
-import { DEFAULT_GESTURE_CONFIG } from "../input";
-import type { HitTarget, Intent, ScreenPoint } from "../input";
+import { DEFAULT_GESTURE_CONFIG, GestureRecognizer } from "../input";
 import { clearPositionsOfReparentedNodes } from "../commands";
-import { computeLayout } from "../layout";
-import type { LayoutResult, Size } from "../layout";
 import type { MindMap, NodeId } from "../model";
 import { MapRenderer } from "../render";
 import type { AddButtonLabels, RenderUi } from "../render";
-import { CameraController, isCameraIntent } from "./cameraController";
-import { EmptySpaceMenu } from "./emptySpaceMenu";
-import type { MenuHandle, MenuItem } from "./menu";
-import { MarqueeSelection } from "./marqueeSelection";
-import { DEFAULT_NODE_MENU_LABELS, NodeMenu } from "./nodeMenu";
-import type { NodeMenuLabels } from "./nodeMenu";
-import { NodeDrag, isNodeDragIntent } from "./nodeDrag";
-import { KeyboardAssist } from "./keyboardAssist";
-import { navigate } from "./navigation";
-import type { NavigationDirection } from "./navigation";
-import { BranchTransfer, UNAVAILABLE_BRANCH_CLIPBOARD } from "./branchTransfer";
+import { UNAVAILABLE_BRANCH_CLIPBOARD } from "./branchTransfer";
 import type { BranchClipboard } from "./branchTransfer";
-import { NodeEdits } from "./nodeEdits";
-import { Selection } from "./selection";
-import { TextEditing } from "./textEditing";
-import type { TextEditFollowUp } from "./textEditSession";
+import { CameraController } from "./cameraController";
+import { attachEditorInput } from "./editorInput";
+import { createEditorParts } from "./editorParts";
+import type { EditorParts } from "./editorParts";
+import { IntentDispatcher } from "./intentDispatcher";
+import { KeyboardAssist } from "./keyboardAssist";
+import { MapFrame } from "./mapFrame";
+import type { MapHost } from "./mapHost";
+import { DEFAULT_NODE_MENU_LABELS } from "./nodeMenu";
+import type { NodeMenuLabels } from "./nodeMenu";
 import { ViewShortcuts } from "./viewShortcuts";
 import type { VisibleAreaSource } from "./visibleArea";
 
-export type { BranchClipboard };
-
-export interface MapHost {
-  onMapChanged(): void;
-  onHistoryChanged?(canUndo: boolean, canRedo: boolean): void;
-  showMenu(items: readonly MenuItem[], at: ScreenPoint): MenuHandle | void;
-  onTextEditEnded(): void;
-  notify(message: string): void;
-}
+export type { BranchClipboard, MapHost };
 
 export interface MapEditorOptions {
   readonly container: HTMLElement;
@@ -63,83 +39,54 @@ const MILLISECONDS_PER_SECOND = 1000;
 export class MapEditor {
   private readonly renderer: MapRenderer;
   private readonly recognizer: GestureRecognizer;
-  private readonly selection: Selection;
-  private readonly nodeEdits: NodeEdits;
-  private readonly branchTransfer: BranchTransfer;
-  private readonly textEditing: TextEditing;
-  private readonly emptySpaceMenu: EmptySpaceMenu;
-  private readonly nodeMenu: NodeMenu;
-  private readonly nodeDrag: NodeDrag;
-  private readonly marqueeSelection: MarqueeSelection;
-  private readonly host: MapHost;
-  private readonly requestFrame: (callback: () => void) => void;
   private readonly camera: CameraController;
+  private readonly viewShortcuts: ViewShortcuts;
+  private readonly frame: MapFrame;
+  private readonly parts: EditorParts;
+  private readonly intents: IntentDispatcher;
   private readonly detachInput: readonly (() => void)[];
   private readonly resizeObserver: ResizeObserver;
   private readonly keyboardAssist: KeyboardAssist;
-  private readonly viewShortcuts: ViewShortcuts;
-  private layout: LayoutResult | null = null;
-  private sizes: ReadonlyMap<NodeId, Size> = new Map();
-  private isFramePending = false;
   private isDestroyed = false;
   private mapSession = 0;
 
-  constructor({
-    container,
-    host,
-    requestFrame,
-    labels,
-    visibleArea,
-    doneLabel,
-    addNodeLabel,
-    resetMapLayoutLabel,
-    nodeMenuLabels,
-    longPressSeconds,
-    clipboard,
-  }: MapEditorOptions) {
+  constructor(options: MapEditorOptions) {
+    const { container, labels, longPressSeconds } = options;
     const view = container.ownerDocument.defaultView;
-    this.host = host;
-    this.recognizer = new GestureRecognizer(DEFAULT_GESTURE_CONFIG, (intent) => this.handleIntent(intent));
+    const requestFrame = options.requestFrame ?? ((callback) => void view?.requestAnimationFrame(callback));
+    this.recognizer = new GestureRecognizer(DEFAULT_GESTURE_CONFIG, (intent) => this.intents.handle(intent));
     if (longPressSeconds !== undefined) this.setLongPressSeconds(longPressSeconds);
-    this.requestFrame = requestFrame ?? ((callback) => void view?.requestAnimationFrame(callback));
     this.renderer = new MapRenderer(container, { labels });
-    this.camera = new CameraController(this.renderer, this.requestFrame);
+    this.camera = new CameraController(this.renderer, requestFrame);
     this.viewShortcuts = new ViewShortcuts({
       camera: this.camera,
       canvasElement: this.renderer.canvasElement,
-      getLayout: () => this.layout,
-      getSizes: () => this.sizes,
+      getLayout: () => this.frame.layout,
+      getSizes: () => this.frame.sizes,
     });
-    this.selection = new Selection({
-      focusCanvas: () => this.renderer.focusCanvas(),
-      scheduleFrame: () => this.scheduleFrame(),
+    this.frame = this.createFrame(requestFrame);
+    this.parts = this.createParts(options);
+    this.intents = this.createIntentDispatcher();
+    this.detachInput = attachEditorInput(this.renderer.canvasElement, {
+      recognizer: this.recognizer,
+      isEditingText: () => this.parts.textEditing.isEditing(),
+      handleIntent: (intent) => this.intents.handle(intent),
     });
-    this.nodeEdits = this.createNodeEdits();
-    this.textEditing = this.createTextEditing();
-    this.branchTransfer = this.createBranchTransfer(clipboard ?? UNAVAILABLE_BRANCH_CLIPBOARD);
-    this.emptySpaceMenu = this.createEmptySpaceMenu(
-      addNodeLabel ?? "Add node",
-      resetMapLayoutLabel ?? "Reset map to auto-layout",
-    );
-    this.nodeMenu = this.createNodeMenu(nodeMenuLabels ?? DEFAULT_NODE_MENU_LABELS);
-    this.nodeDrag = this.createNodeDrag();
-    this.marqueeSelection = this.createMarqueeSelection();
-    this.detachInput = this.attachInput(this.renderer.canvasElement);
-    this.resizeObserver = new ResizeObserver(() => this.scheduleFrame());
+    this.resizeObserver = new ResizeObserver(() => this.frame.schedule());
     this.resizeObserver.observe(container);
     this.keyboardAssist = new KeyboardAssist({
-      visibleArea: visibleArea ?? null,
+      visibleArea: options.visibleArea ?? null,
       doc: container.ownerDocument,
-      doneLabel: doneLabel ?? "Done",
+      doneLabel: options.doneLabel ?? "Done",
       camera: this.camera,
       canvasElement: this.renderer.canvasElement,
-      onDone: () => this.textEditing.commit({ kind: "keyboard" }),
+      onDone: () => this.parts.textEditing.commit({ kind: "keyboard" }),
       onVisibleAreaChanged: () => this.onVisibleAreaChanged(),
     });
   }
 
   getMap(): MindMap {
-    return this.nodeDrag.committedMap() ?? this.textEditing.persistedMap();
+    return this.parts.nodeDrag.committedMap() ?? this.parts.textEditing.persistedMap();
   }
 
   loadMap(map: MindMap): void {
@@ -148,27 +95,15 @@ export class MapEditor {
   }
 
   reloadMap(map: MindMap): void {
-    this.showLoadedMap(clearPositionsOfReparentedNodes(this.nodeEdits.getDisplayMap(), map));
-  }
-
-  private showLoadedMap(map: MindMap): void {
-    this.textEditing.cancel();
-    this.nodeDrag.cancel();
-    this.marqueeSelection.cancel();
-    this.nodeEdits.replaceDisplayMap(map);
-    this.nodeEdits.clearHistory();
-    this.selection.set(null);
-    this.layout = null;
-    this.sizes = new Map();
-    this.scheduleFrame();
+    this.showLoadedMap(clearPositionsOfReparentedNodes(this.parts.nodeEdits.getDisplayMap(), map));
   }
 
   beginEditingNode(nodeId: NodeId): void {
-    this.nodeDrag.cancel();
-    if (!this.nodeEdits.getDisplayMap().nodes.has(nodeId)) return;
-    this.selection.set(nodeId);
-    this.renderFrame();
-    this.textEditing.beginEditing(nodeId, null);
+    this.parts.nodeDrag.cancel();
+    if (!this.parts.nodeEdits.getDisplayMap().nodes.has(nodeId)) return;
+    this.parts.selection.set(nodeId);
+    this.frame.render();
+    this.parts.textEditing.beginEditing(nodeId, null);
   }
 
   /**
@@ -176,10 +111,10 @@ export class MapEditor {
    * nodes and edits of existing nodes are committed first, then undone.
    */
   undo(): void {
-    this.nodeDrag.cancel();
-    const isDiscardingEmptyNewNode = this.textEditing.isEmptyNewNode();
+    this.parts.nodeDrag.cancel();
+    const isDiscardingEmptyNewNode = this.parts.textEditing.isEmptyNewNode();
     this.commitPendingEdit();
-    if (!isDiscardingEmptyNewNode) this.nodeEdits.undo();
+    if (!isDiscardingEmptyNewNode) this.parts.nodeEdits.undo();
   }
 
   /**
@@ -187,9 +122,9 @@ export class MapEditor {
    * then redoes.
    */
   redo(): void {
-    this.nodeDrag.cancel();
+    this.parts.nodeDrag.cancel();
     this.commitPendingEdit();
-    this.nodeEdits.redo();
+    this.parts.nodeEdits.redo();
   }
 
   fitToScreen(): void {
@@ -202,23 +137,23 @@ export class MapEditor {
 
   duplicateSelectedBranch(): void {
     if (this.isEditingText()) return;
-    this.nodeDrag.cancel();
-    this.branchTransfer.duplicate(this.selection.sole);
+    this.parts.nodeDrag.cancel();
+    this.parts.branchTransfer.duplicate(this.parts.selection.sole);
   }
 
   hasSelection(): boolean {
-    return this.selection.sole !== null;
+    return this.parts.selection.sole !== null;
   }
 
   resetSelectedNodeLayout(): void {
-    const selectedId = this.selection.sole;
-    this.nodeDrag.cancel();
-    if (selectedId !== null) this.nodeEdits.resetNodeLayoutOf(selectedId);
+    const selectedId = this.parts.selection.sole;
+    this.parts.nodeDrag.cancel();
+    if (selectedId !== null) this.parts.nodeEdits.resetNodeLayoutOf(selectedId);
   }
 
   resetMapLayout(): void {
-    this.nodeDrag.cancel();
-    this.nodeEdits.resetMapLayout();
+    this.parts.nodeDrag.cancel();
+    this.parts.nodeEdits.resetMapLayout();
   }
 
   setLongPressSeconds(seconds: number): void {
@@ -226,11 +161,11 @@ export class MapEditor {
   }
 
   isEditingText(): boolean {
-    return this.textEditing.isEditing();
+    return this.parts.textEditing.isEditing();
   }
 
   commitPendingEdit(): void {
-    this.textEditing.commit();
+    this.parts.textEditing.commit();
   }
 
   destroy(): void {
@@ -244,285 +179,71 @@ export class MapEditor {
     this.renderer.destroy();
   }
 
-  private createNodeEdits(): NodeEdits {
-    return new NodeEdits({
-      selection: this.selection,
-      getLayout: () => this.layout,
-      getSizes: () => this.sizes,
-      onMapChanged: () => this.host.onMapChanged(),
-      onHistoryChanged: (canUndo, canRedo) => this.host.onHistoryChanged?.(canUndo, canRedo),
-      renderFrame: () => this.renderFrame(),
-      scheduleFrame: () => this.scheduleFrame(),
-      beginEditingNewNode: (nodeId, origin) => this.textEditing.beginEditing(nodeId, origin),
+  private showLoadedMap(map: MindMap): void {
+    const { textEditing, nodeDrag, marqueeSelection, nodeEdits, selection } = this.parts;
+    textEditing.cancel();
+    nodeDrag.cancel();
+    marqueeSelection.cancel();
+    nodeEdits.replaceDisplayMap(map);
+    nodeEdits.clearHistory();
+    selection.set(null);
+    this.frame.reset();
+    this.frame.schedule();
+  }
+
+  private createFrame(requestFrame: (callback: () => void) => void): MapFrame {
+    return new MapFrame({
+      renderer: this.renderer,
+      requestFrame,
+      getDisplayMap: () => this.parts.nodeEdits.getDisplayMap(),
+      currentUi: () => this.currentRenderUi(),
+      onRendered: (layout, sizes) =>
+        this.keyboardAssist.sync(this.parts.textEditing.currentDraft()?.nodeId ?? null, layout, sizes),
+      isDestroyed: () => this.isDestroyed,
     });
   }
 
-  private createTextEditing(): TextEditing {
-    return new TextEditing({
-      selection: this.selection,
-      canvasElement: this.renderer.canvasElement,
-      getNodeElement: (nodeId) => this.renderer.getNodeElement(nodeId),
-      getDisplayMap: () => this.nodeEdits.getDisplayMap(),
-      replaceDisplayMap: (map) => this.nodeEdits.replaceDisplayMap(map),
-      applyEdit: (edit, undoBase) => this.nodeEdits.applyEdit(edit, undoBase),
-      focusCanvas: () => this.renderer.focusCanvas(),
-      scheduleFrame: () => this.scheduleFrame(),
-      onTextEditEnded: () => this.host.onTextEditEnded(),
-      followUp: (followUp, nodeId) => this.followUpTextEdit(followUp, nodeId),
-    });
-  }
-
-  private followUpTextEdit(followUp: TextEditFollowUp, nodeId: NodeId): void {
-    // The layout must include the committed text, so the new node gets the right side and position.
-    this.renderFrame();
-    if (followUp === "addChild") this.nodeEdits.addChildTo(nodeId);
-    else this.nodeEdits.addSiblingTo(nodeId);
-  }
-
-  private createBranchTransfer(clipboard: BranchClipboard): BranchTransfer {
-    return new BranchTransfer({
-      clipboard,
-      getMap: () => this.nodeEdits.getDisplayMap(),
-      pasteDrafts: (drafts, targetId) => {
-        // A drag started while the clipboard was read would otherwise overwrite the paste with its preview map.
-        this.nodeDrag.cancel();
-        this.nodeEdits.pasteDrafts(drafts, targetId);
+  private createParts(options: MapEditorOptions): EditorParts {
+    return createEditorParts({
+      host: options.host,
+      renderer: this.renderer,
+      camera: this.camera,
+      clipboard: options.clipboard ?? UNAVAILABLE_BRANCH_CLIPBOARD,
+      labels: {
+        addNode: options.addNodeLabel ?? "Add node",
+        resetMapLayout: options.resetMapLayoutLabel ?? "Reset map to auto-layout",
+        nodeMenu: options.nodeMenuLabels ?? DEFAULT_NODE_MENU_LABELS,
       },
-      duplicateBranch: (nodeId) => this.nodeEdits.duplicateBranchOf(nodeId),
-      commitPendingEdit: () => this.commitPendingEdit(),
+      getLayout: () => this.frame.layout,
+      getSizes: () => this.frame.sizes,
+      renderFrame: () => this.frame.render(),
+      scheduleFrame: () => this.frame.schedule(),
+      resetMapLayout: () => this.resetMapLayout(),
       isActive: () => !this.isDestroyed,
       mapSession: () => this.mapSession,
     });
   }
 
-  private createEmptySpaceMenu(addNodeLabel: string, resetMapLayoutLabel: string): EmptySpaceMenu {
-    return new EmptySpaceMenu({
-      canvasElement: this.renderer.canvasElement,
-      addNodeLabel,
-      resetMapLayoutLabel,
-      getCamera: () => this.camera.getCamera(),
-      showMenu: (items, at) => this.host.showMenu(items, at),
-      commitPendingEdit: () => this.commitPendingEdit(),
-      createNode: (creation) => this.nodeEdits.createNode(creation),
-      resetMapLayout: () => this.resetMapLayout(),
-    });
-  }
-
-  private createNodeMenu(labels: NodeMenuLabels): NodeMenu {
-    return new NodeMenu({
-      canvasElement: this.renderer.canvasElement,
-      labels,
-      actions: {
-        addChildTo: (nodeId) => this.nodeEdits.addChildTo(nodeId),
-        addSiblingTo: (nodeId) => this.nodeEdits.addSiblingTo(nodeId),
-        setColor: (nodeId, color) => this.nodeEdits.setColorOf(nodeId, color),
-        copyBranch: (nodeId) => this.branchTransfer.copy(nodeId),
-        pasteInto: (nodeId) => this.branchTransfer.paste(nodeId),
-        duplicateBranch: (nodeId) => this.branchTransfer.duplicate(nodeId),
-        toggleCollapse: (nodeId) => this.nodeEdits.toggleCollapseOf(nodeId),
-        resetNodeLayout: (nodeId) => this.nodeEdits.resetNodeLayoutOf(nodeId),
-        deleteNode: (nodeId) => this.deleteNodeAndFocusCanvas(nodeId),
-      },
-      getMap: () => this.nodeEdits.getDisplayMap(),
-      showMenu: (items, at) => this.host.showMenu(items, at),
-      commitPendingEdit: () => this.commitPendingEdit(),
-      selectNode: (nodeId) => this.selection.select(nodeId),
-    });
-  }
-
-  private createNodeDrag(): NodeDrag {
-    return new NodeDrag({
-      getMap: () => this.nodeEdits.getDisplayMap(),
-      getLayout: () => this.layout,
-      getSizes: () => this.sizes,
-      getCamera: () => this.camera.getCamera(),
-      replaceDisplayMap: (map) => this.nodeEdits.replaceDisplayMap(map),
-      applyEdit: (edit) => this.nodeEdits.applyEdit(edit),
-      getSelectedIds: () => this.selection.ids,
-      selectNode: (nodeId) => this.selection.select(nodeId),
-      scheduleFrame: () => this.scheduleFrame(),
-    });
-  }
-
-  private createMarqueeSelection(): MarqueeSelection {
-    return new MarqueeSelection({
-      getMap: () => this.nodeEdits.getDisplayMap(),
-      getLayout: () => this.layout,
-      getSizes: () => this.sizes,
-      getCamera: () => this.camera.getCamera(),
-      showMarquee: (rect) => this.renderer.setMarquee(rect),
-      selectNodes: (nodeIds) => this.selection.selectMany(nodeIds),
-      closeMenu: () => this.emptySpaceMenu.close(),
-    });
-  }
-
-  private deleteNodeAndFocusCanvas(nodeId: NodeId): void {
-    this.nodeEdits.deleteNode(nodeId);
-    this.renderer.focusCanvas();
-  }
-
-  private attachInput(canvas: HTMLElement): readonly (() => void)[] {
-    const dispatch = (intents: readonly Intent[]): void =>
-      intents.forEach((intent) => this.handleIntent(intent));
-    return [
-      attachPointerSource(canvas, (sample) => dispatch(this.recognizer.handle(sample))),
-      attachContextMenuSource(canvas, (sample) => dispatch(this.recognizer.handleContextMenu(sample))),
-      attachWheelSource(canvas, (sample) => dispatch(this.recognizer.handleWheel(sample))),
-      attachSpaceKeySource(canvas, (isHeld) => this.recognizer.setSpaceHeld(isHeld)),
-      attachKeySource(canvas, () => (this.textEditing.isEditing() ? "editing" : "navigate"), (intent) =>
-        this.handleIntent(intent),
-      ),
-      attachNativeGestureGuard(canvas),
-    ];
-  }
-
-  private handleIntent(intent: Intent): void {
-    if (this.isDestroyed) return;
-    if (isCameraIntent(intent)) {
-      this.camera.handle(intent);
-      return;
-    }
-    // Any other intent arriving mid-drag (a key, a right click) must not build on the preview map.
-    if (!isNodeDragIntent(intent)) this.nodeDrag.cancel();
-    this.commitPendingEdit();
-    switch (intent.type) {
-      case "tap":
-        return this.handleTap(intent.target, intent.isAdditive === true);
-      case "doubleTap":
-        return this.handleDoubleTap(intent.target, intent.point);
-      case "longPress":
-      case "contextMenu":
-        return this.openContextMenu(intent.target, intent.point);
-      case "nodeDragStart":
-        return this.nodeDrag.start(intent.nodeId);
-      case "nodeDrag":
-        return this.nodeDrag.move(intent.dx, intent.dy, intent.point);
-      case "nodeDragEnd":
-        return this.nodeDrag.end();
-      case "nodeDragCancel":
-        return this.nodeDrag.cancel();
-      case "marqueeStart":
-        return this.marqueeSelection.start(intent.origin);
-      case "marqueeMove":
-        return this.marqueeSelection.move(intent.point);
-      case "marqueeEnd":
-        return this.marqueeSelection.end();
-      case "marqueeCancel":
-        return this.marqueeSelection.cancel();
-      case "toggleCollapse":
-        return this.nodeEdits.toggleCollapseOfSelection();
-      case "addChild":
-        return this.nodeEdits.addChildToSelection();
-      case "addSibling":
-        return this.nodeEdits.addSiblingToSelection();
-      case "deleteSelection":
-        return this.nodeEdits.deleteSelection();
-      case "editSelection":
-        return this.editSelection();
-      case "clearSelection":
-        return this.selection.select(null);
-      case "navigate":
-        return this.navigateSelection(intent.direction);
-      case "fitToScreen":
-        return this.fitToScreen();
-      case "zoomStep":
-        return this.zoomStep(intent.direction);
-      case "copyBranch":
-        return this.ifSingleSelection(() => this.branchTransfer.copy(this.selection.current));
-      case "pasteBranch":
-        return this.ifSingleSelection(() => this.branchTransfer.paste(this.selection.current));
-      case "duplicateBranch":
-        return this.ifSingleSelection(() => this.branchTransfer.duplicate(this.selection.current));
-      case "undo":
-        return this.undo();
-      case "redo":
-        return this.redo();
-    }
-  }
-
-  private openContextMenu(target: HitTarget, point: ScreenPoint): void {
-    switch (target.kind) {
-      case "canvas":
-        return this.emptySpaceMenu.requestMenu(target, point);
-      case "node":
-        return this.nodeMenu.requestMenu(target, point);
-      case "add-child":
-      case "add-sibling":
-      case "collapse-toggle":
-        return;
-    }
-  }
-
-  private ifSingleSelection(action: () => void): void {
-    if (!this.selection.isMultiple) action();
-  }
-
-  private handleTap(target: HitTarget, isAdditive = false): void {
-    switch (target.kind) {
-      case "node":
-        return isAdditive ? this.selection.toggle(target.nodeId) : this.selection.select(target.nodeId);
-      case "canvas":
-        return this.selection.select(null);
-      case "add-child":
-        return this.nodeEdits.addChildTo(target.nodeId);
-      case "add-sibling":
-        return this.nodeEdits.addSiblingTo(target.nodeId);
-      case "collapse-toggle":
-        return this.toggleCollapseFromIndicator(target.nodeId);
-    }
-  }
-
-  private toggleCollapseFromIndicator(nodeId: NodeId): void {
-    this.selection.select(nodeId);
-    this.nodeEdits.toggleCollapseOf(nodeId);
-  }
-
-  private handleDoubleTap(target: HitTarget, point: ScreenPoint): void {
-    this.handleTap(target);
-    if (target.kind === "node") this.textEditing.beginEditing(target.nodeId, null);
-    if (target.kind === "canvas") this.emptySpaceMenu.addRootAt(point);
-  }
-
-  private navigateSelection(direction: NavigationDirection): void {
-    if (this.layout === null) return;
-    const targetId = navigate(this.nodeEdits.getDisplayMap(), this.layout, this.selection.current, direction);
-    if (targetId === null) return;
-    this.selection.select(targetId);
-    this.viewShortcuts.revealNode(targetId);
-  }
-
-  private editSelection(): void {
-    const selectedId = this.selection.sole;
-    if (selectedId !== null) this.textEditing.beginEditing(selectedId, null);
-  }
-
-  private scheduleFrame(): void {
-    if (this.isFramePending || this.isDestroyed) return;
-    this.isFramePending = true;
-    this.requestFrame(() => {
-      this.isFramePending = false;
-      if (!this.isDestroyed) this.renderFrame();
+  private createIntentDispatcher(): IntentDispatcher {
+    return new IntentDispatcher({
+      parts: this.parts,
+      camera: this.camera,
+      viewShortcuts: this.viewShortcuts,
+      actions: this,
+      getLayout: () => this.frame.layout,
+      isDestroyed: () => this.isDestroyed,
     });
   }
 
   private onVisibleAreaChanged(): void {
-    if (this.textEditing.isEditing()) this.scheduleFrame();
-  }
-
-  private renderFrame(): void {
-    const displayMap = this.nodeEdits.getDisplayMap();
-    this.renderer.syncContent(displayMap, this.currentRenderUi());
-    this.sizes = this.renderer.measure();
-    this.layout = computeLayout(displayMap, this.sizes);
-    this.renderer.place(displayMap, this.layout);
-    this.keyboardAssist.sync(this.textEditing.currentDraft()?.nodeId ?? null, this.layout, this.sizes);
+    if (this.parts.textEditing.isEditing()) this.frame.schedule();
   }
 
   private currentRenderUi(): RenderUi {
     return {
-      editing: this.textEditing.currentDraft(),
-      selectedIds: new Set(this.selection.ids),
-      dropTargetId: this.nodeDrag.dropTargetId(),
+      editing: this.parts.textEditing.currentDraft(),
+      selectedIds: new Set(this.parts.selection.ids),
+      dropTargetId: this.parts.nodeDrag.dropTargetId(),
     };
   }
 }

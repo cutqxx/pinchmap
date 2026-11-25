@@ -305,7 +305,13 @@ describe("closing the link bubble", () => {
     expect(bubble()).toBeNull();
   });
 
-  it("closes on a keyboard intent such as Escape", () => {
+  it("closes on Escape", () => {
+    openBubble();
+    canvas().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(bubble()).toBeNull();
+  });
+
+  it("closes on a keyboard navigation key", () => {
     openBubble();
     canvas().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
     expect(bubble()).toBeNull();
@@ -338,13 +344,46 @@ describe("closing the link bubble", () => {
     expect(bubble()).toBeNull();
   });
 
-  it("stops reacting to outside presses after it was closed", () => {
+  it("removes its document pointerdown listener when it closes", () => {
+    const addSpy = vi.spyOn(document, "addEventListener");
+    const removeSpy = vi.spyOn(document, "removeEventListener");
     openBubble();
+    const added = addSpy.mock.calls.find(([type]) => type === "pointerdown");
+    expect(added).toBeDefined();
+
     tapOn(canvas());
-    const removeSpy = vi.spyOn(HTMLElement.prototype, "remove");
 
-    document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    const removed = removeSpy.mock.calls.find(([type]) => type === "pointerdown");
+    expect(removed?.[1]).toBe(added?.[1]);
+    expect(removed?.[2]).toBe(added?.[2]);
+  });
+});
 
-    expect(removeSpy).not.toHaveBeenCalled();
+describe("context menu on a link icon", () => {
+  it("does not open any menu", () => {
+    openMap();
+
+    iconOf("w").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 }));
+
+    expect(host.showMenu).not.toHaveBeenCalled();
+  });
+});
+
+describe("link icon stylesheet", () => {
+  async function stylesheet(): Promise<string> {
+    const { readFileSync } = await import("node:fs");
+    return readFileSync("styles.css", "utf8");
+  }
+
+  it("stacks the icon above the add buttons with a z-index", async () => {
+    const rule = /\.pinchmap-link-icon\s*\{([^}]*)\}/.exec(await stylesheet())?.[1] ?? "";
+
+    expect(rule).toMatch(/z-index:\s*[1-9]/);
+  });
+
+  it("moves the icon to the right corner only for left-side nodes that are not the root", async () => {
+    const css = await stylesheet();
+
+    expect(css).toMatch(/\.pinchmap-node\.is-left:not\(\.is-root\)\s*>\s*\.pinchmap-link-icon\s*\{[^}]*left:\s*100%/);
   });
 });

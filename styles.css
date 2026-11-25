@@ -407,12 +407,13 @@
   justify-content: center;
   width: 44px;
   height: 44px;
+  z-index: 1;
   margin: -22px 0 0 -22px;
   cursor: pointer;
   transform: scale(calc(1 / var(--pinchmap-zoom, 1)));
 }
 
-.pinchmap-node.is-left > .pinchmap-link-icon {
+.pinchmap-node.is-left:not(.is-root) > .pinchmap-link-icon {
   left: 100%;
 }
 

@@ -66,6 +66,73 @@
   visibility: hidden;
 }
 
+.pinchmap-node .pinchmap-node-markdown {
+  display: none;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+
+.pinchmap-node.has-rendered-markdown:not(.is-editing) > .pinchmap-node-markdown.is-ready {
+  display: block;
+}
+
+.pinchmap-node.has-rendered-markdown:not(.is-editing) > .pinchmap-node-text {
+  display: none;
+}
+
+.pinchmap-node .pinchmap-node-markdown.is-render-failed {
+  white-space: pre-wrap;
+}
+
+.pinchmap-node .pinchmap-node-markdown :is(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre) {
+  margin: 0;
+}
+
+.pinchmap-node .pinchmap-node-markdown > * + * {
+  margin-top: 0.25em;
+}
+
+.pinchmap-node .pinchmap-node-markdown :is(h1, h2, h3, h4, h5, h6) {
+  color: inherit;
+  font-size: 1em;
+  font-weight: var(--font-semibold, 600);
+  line-height: 1.3;
+}
+
+.pinchmap-node .pinchmap-node-markdown h1 {
+  font-size: 1.25em;
+}
+
+.pinchmap-node .pinchmap-node-markdown h2 {
+  font-size: 1.125em;
+}
+
+.pinchmap-node .pinchmap-node-markdown :is(ul, ol) {
+  padding-inline-start: 1.25em;
+}
+
+.pinchmap-node .pinchmap-node-markdown pre {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.pinchmap-node .pinchmap-node-markdown :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+.pinchmap-node .pinchmap-node-markdown .internal-embed:not(.image-embed) {
+  max-height: 150px;
+  overflow: hidden;
+}
+
+.pinchmap-node .pinchmap-node-markdown * {
+  pointer-events: none;
+}
+
 .pinchmap-node-input {
   position: absolute;
   inset: 0;

@@ -2,7 +2,7 @@ import { DEFAULT_GESTURE_CONFIG, GestureRecognizer } from "../input";
 import { clearPositionsOfReparentedNodes } from "../commands";
 import type { MindMap, NodeId } from "../model";
 import { MapRenderer } from "../render";
-import type { AddButtonLabels, RenderUi } from "../render";
+import type { AddButtonLabels, NodeContentRenderer, RenderUi } from "../render";
 import { UNAVAILABLE_BRANCH_CLIPBOARD } from "./branchTransfer";
 import type { BranchClipboard } from "./branchTransfer";
 import { CameraController } from "./cameraController";
@@ -32,6 +32,7 @@ export interface MapEditorOptions {
   readonly nodeMenuLabels?: NodeMenuLabels;
   readonly longPressSeconds?: number;
   readonly clipboard?: BranchClipboard;
+  readonly renderNodeContent?: NodeContentRenderer;
 }
 
 const MILLISECONDS_PER_SECOND = 1000;
@@ -56,7 +57,11 @@ export class MapEditor {
     const requestFrame = options.requestFrame ?? ((callback) => void view?.requestAnimationFrame(callback));
     this.recognizer = new GestureRecognizer(DEFAULT_GESTURE_CONFIG, (intent) => this.intents.handle(intent));
     if (longPressSeconds !== undefined) this.setLongPressSeconds(longPressSeconds);
-    this.renderer = new MapRenderer(container, { labels });
+    this.renderer = new MapRenderer(container, {
+      labels,
+      contentRenderer: options.renderNodeContent,
+      onContentResized: () => this.frame.schedule(),
+    });
     this.camera = new CameraController(this.renderer, requestFrame);
     this.viewShortcuts = new ViewShortcuts({
       camera: this.camera,

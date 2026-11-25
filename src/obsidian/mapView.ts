@@ -10,6 +10,7 @@ import { showObsidianMenu } from "./showMenu";
 import { ExternalChangeGate } from "./externalChangeGate";
 import { registerViewZoomHotkeys } from "./viewZoomHotkeys";
 import { registerViewBranchHotkeys } from "./viewBranchHotkeys";
+import { createNodeContentRenderer } from "./nodeMarkdown";
 import { createBranchClipboard, textClipboardOf } from "./branchClipboard";
 import { t } from "./i18n";
 
@@ -66,6 +67,7 @@ export class MapView extends TextFileView {
         delete: t("delete"),
       },
       longPressSeconds,
+      renderNodeContent: createNodeContentRenderer(this.app, this, () => this.file?.path ?? ""),
       clipboard: createBranchClipboard(textClipboardOf(this.contentEl.ownerDocument.defaultView ?? window)),
       labels: { addChild: t("addChild"), addSibling: t("addSibling"), collapse: t("collapse"), expand: t("expand") },
       host: {

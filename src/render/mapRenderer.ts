@@ -5,6 +5,8 @@ import type { Camera } from "../viewport";
 import { DEFAULT_COLLAPSE_TOGGLE_LABELS, syncCollapseToggle } from "./collapseToggle";
 import type { CollapseToggleLabels } from "./collapseToggle";
 import { edgePath } from "./edgePath";
+import { NodeContentLayer } from "./nodeContent";
+import type { NodeContentRenderer } from "./nodeContent";
 
 export interface RenderUi {
   readonly editing: { readonly nodeId: NodeId; readonly draftText: string } | null;
@@ -21,6 +23,9 @@ export interface AddButtonLabels {
 
 export interface MapRendererOptions {
   readonly labels?: AddButtonLabels;
+  readonly contentRenderer?: NodeContentRenderer;
+  /** Called when rendered content settles asynchronously and nodes need measuring again. */
+  readonly onContentResized?: () => void;
 }
 
 const DEFAULT_LABELS: AddButtonLabels = { addChild: "Add child", addSibling: "Add sibling" };
@@ -50,9 +55,17 @@ export class MapRenderer {
 
   private readonly labels: AddButtonLabels;
   private readonly toggleLabels: CollapseToggleLabels;
+  private readonly contentLayer: NodeContentLayer | null;
 
-  constructor(container: HTMLElement, { labels = DEFAULT_LABELS }: MapRendererOptions = {}) {
+  constructor(
+    container: HTMLElement,
+    { labels = DEFAULT_LABELS, contentRenderer, onContentResized }: MapRendererOptions = {},
+  ) {
     this.labels = labels;
+    this.contentLayer =
+      contentRenderer === undefined
+        ? null
+        : new NodeContentLayer(contentRenderer, (id) => this.markContentResized(id, onContentResized));
     this.toggleLabels = {
       collapse: labels.collapse ?? DEFAULT_COLLAPSE_TOGGLE_LABELS.collapse,
       expand: labels.expand ?? DEFAULT_COLLAPSE_TOGGLE_LABELS.expand,
@@ -141,6 +154,13 @@ export class MapRenderer {
     this.sizes.clear();
     this.dirtyIds.clear();
     this.displayedTexts.clear();
+    this.contentLayer?.destroy();
+  }
+
+  private markContentResized(id: NodeId, onContentResized: (() => void) | undefined): void {
+    if (!this.nodeElements.has(id)) return;
+    this.dirtyIds.add(id);
+    onContentResized?.();
   }
 
   private removeStaleElements(map: MindMap): void {
@@ -157,6 +177,7 @@ export class MapRenderer {
     this.sizes.delete(id);
     this.dirtyIds.delete(id);
     this.displayedTexts.delete(id);
+    this.contentLayer?.remove(id);
   }
 
   private syncNodeElement(node: MapNode, map: MindMap, ui: RenderUi): void {
@@ -166,6 +187,7 @@ export class MapRenderer {
       ? withTrailingLineVisible(ui.editing?.draftText ?? node.text)
       : node.text;
     this.syncText(element, node.id, displayedText);
+    this.contentLayer?.sync(node.id, element, node.text);
     element.classList.toggle("is-editing", isEditing);
     element.classList.toggle("is-root", node.parentId === null);
     const isSelected = ui.selectedIds.has(node.id);
